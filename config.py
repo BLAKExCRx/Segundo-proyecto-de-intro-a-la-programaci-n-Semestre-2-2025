@@ -35,3 +35,8 @@ COLORES_JUEGO = {
     'salida': (0, 255, 0),
     'trampa': (255, 0, 0)
 }
+# Archivos highscores
+ARCHIVOS_HIGHSCORES = {
+    'escapa': 'highscores_escapa.json',
+    'cazador': 'highscores_cazador.json'
+}

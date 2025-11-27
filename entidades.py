@@ -17,6 +17,7 @@ class Terreno: #clse que define el terreno base y las celdas al llamar a config
         rect = pygame.Rect(col * TAM_CELDA, fila * TAM_CELDA, TAM_CELDA, TAM_CELDA)
         pygame.draw.rect(screen, COLORES_JUEGO[self.tipo], rect)
 #define interacciones de entidades con el mapa en las siguiente clase
+#revisar cuando cree el juego.py y el mapa.py
 class Camino(Terreno):
     def __init__(self):
         super().__init__('camino')
