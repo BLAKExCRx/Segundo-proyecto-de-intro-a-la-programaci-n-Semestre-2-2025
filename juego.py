@@ -2,10 +2,9 @@
 import pygame
 import sys
 import random
-from collections import deque # Necesario para el BFS en encontrar_camino
+from collections import deque
 from config import ANCHO, ALTO, FPS, HUD_HEIGHT, COLORES, TAM_CELDA, COLORES_JUEGO
 from mapa import Mapa
-# Asegurar la importación de todas las clases necesarias
 from entidades import Jugador, Enemigo, Trampa, Camino, Liana, Tunel 
 from puntuacion import Puntuacion
 
@@ -20,71 +19,138 @@ class Juego:
         self.font_hud = pygame.font.SysFont('arial', 18, bold=True)
         self.font_pausa = pygame.font.SysFont('arial', 36, bold=True)
         self.font_menu_pausa = pygame.font.SysFont('arial', 24, bold=True)
+        self.font_game_over = pygame.font.SysFont('arial', 48, bold=True)
         self.running = True
         self.pausado = False
         self.volver_menu = False
+        self.game_over = False
         self.tiempo_inicio = pygame.time.get_ticks()
         self.tiempo_limite = self._get_tiempo_limite()
         self.tiempo_actual = 0
         self.tiempo_pausado = 0
-        self.puntaje = 0
+        
+        # Sistema de puntuación actualizado
+        if self.modo == 'escapa':
+            self.puntaje = 3000  # Empieza con 3000 puntos
+            self.puntaje_resta_timer = 0  # Timer para restar puntos cada 2 segundos
+            self.puntaje_resta_delay = 2000  # 2 segundos en ms
+            self.puntaje_resta_cantidad = self._get_puntaje_resta()
+        else:
+            self.puntaje = 0  # Empieza con 0 puntos en modo cazador
         
         self.mapa = Mapa(self.modo)
         self.inicio = self.mapa.inicio
         self.salida = self.mapa.salida
         self.jugador = Jugador(self.inicio[0], self.inicio[1])
         
-        # Lógica de 3 enemigos individuales
+        # Sistema de enemigos
         self.num_enemigos_total = 3
-        self.enemigos = [] # Lista de objetos Enemigo activos
-        self.enemigos_data = [] # Lista de diccionarios para rastrear ID y timer
+        self.enemigos = []
+        self.enemigos_data = []
         self._inicializar_enemigos()
         
-        # Límite de 3 trampas activas (sin cooldown)
-        self.trampas_activas = [] # Lista de posiciones (r, c) de trampas en el mapa
+        # Sistema de trampas actualizado
+        self.trampas_activas = []
         self.max_trampas_activas = 3
+        self.trampas_disponibles = 0  # Empieza con 0 trampas
+        self.trampa_recarga_timer = 0  # Timer para recargar trampas
+        self.trampa_recarga_delay = 5000  # 5 segundos en ms
         
-        # Timers personalizados para control de IA
+        # Timers de IA
         self.enemigo_timer = 0
         self.enemigo_delay = self._get_enemigo_delay()
         
-        # Opciones del menú de pausa
+        # Menú de pausa
         self.opciones_pausa = ['Continuar', 'Reiniciar', 'Salir al Menu']
         self.opcion_seleccionada = 0
 
     def _get_tiempo_limite(self):
-        """Define el tiempo límite para el modo escapa."""
-        if self.modo == 'escapa':
-            if self.dificultad == 'facil': return 240000 
-            if self.dificultad == 'normal': return 180000
-            else: return 120000 
-        return None
+        """Define el tiempo límite para ambos modos."""
+        if self.dificultad == 'facil':
+            return 240000  # 4 minutos
+        elif self.dificultad == 'normal':
+            return 180000  # 3 minutos
+        else:
+            return 120000  # 2 minutos
+
+    def _get_puntaje_resta(self):
+        """Retorna cuántos puntos se restan cada 2 segundos en modo escapa."""
+        if self.dificultad == 'facil':
+            return 10
+        elif self.dificultad == 'normal':
+            return 20
+        else:
+            return 30
 
     def _get_enemigo_delay(self):
         """Retorna el delay en ms entre movimientos de enemigos según dificultad."""
-        if self.dificultad == 'facil': return 500
-        elif self.dificultad == 'normal': return 300
-        else: return 200
+        if self.dificultad == 'facil':
+            return 500
+        elif self.dificultad == 'normal':
+            return 300
+        else:
+            return 200
 
     def _posicion_aleatoria_valida(self, es_enemigo=False):
         """Busca una posición válida para entidades."""
-        #  CORRECCIÓN: self.mapa.valid_spawn ya existe gracias a la corrección en mapa.py
         valid_pos = self.mapa.valid_spawn[:]
         random.shuffle(valid_pos)
 
         for r, c in valid_pos:
-            # Revisa que no haya otro enemigo
             if not any(e.fila == r and e.col == c for e in self.enemigos):
-                # Revisa distancia mínima del jugador (solo si es enemigo y en modo escapa)
                 if es_enemigo and self.modo == 'escapa':
                     distancia = self._distancia(self.jugador, Enemigo(r, c))
                     if distancia >= 6:
                         return r, c
-                elif not es_enemigo: # Si no es enemigo, solo verificar que sea spawn válido
+                elif not es_enemigo:
                     return r, c
         
-        # Fallback (usa cualquier posición válida si no hay safe-spawn)
         if valid_pos:
             return random.choice(valid_pos)
             
-        return 1, 1 # Fallback final
+        return 1, 1
+    def _inicializar_enemigos(self):
+        """Inicializa los 3 slots de enemigos."""
+        self.enemigos.clear()
+        self.enemigos_data.clear()
+        
+        posiciones_ocupadas = set()
+
+        for i in range(self.num_enemigos_total):
+            pos = self._posicion_aleatoria_valida(es_enemigo=True)
+            r, c = pos
+            
+            if pos is not None and (r, c) not in posiciones_ocupadas:
+                nuevo_enemigo = Enemigo(r, c)
+                self.enemigos.append(nuevo_enemigo)
+                self.enemigos_data.append({'id': i, 'enemigo': nuevo_enemigo, 'timer_activo': False})
+                posiciones_ocupadas.add((r, c))
+            else:
+                self.enemigos_data.append({'id': i, 'enemigo': None, 'timer_activo': False})
+                self._programar_reaparicion_enemigo(i, 3000)
+
+    def _programar_reaparicion_enemigo(self, enemigo_id, tiempo=10000):
+        """Programa la reaparición de un enemigo por su ID."""
+        event_id = pygame.USEREVENT + 10 + enemigo_id
+        pygame.time.set_timer(event_id, tiempo, 1)
+        
+        for data in self.enemigos_data:
+            if data['id'] == enemigo_id:
+                data['timer_activo'] = True
+                break
+
+    def _reaparecer_enemigo(self, enemigo_id):
+        """Reaparece un enemigo en una posición válida."""
+        enemigo_data = next((data for data in self.enemigos_data if data['id'] == enemigo_id), None)
+        if not enemigo_data:
+            return
+
+        pos = self._posicion_aleatoria_valida(es_enemigo=True)
+        if pos is None:
+            return
+        r, c = pos
+        
+        nuevo_enemigo = Enemigo(r, c)
+        self.enemigos.append(nuevo_enemigo)
+        enemigo_data['enemigo'] = nuevo_enemigo
+        enemigo_data['timer_activo'] = False

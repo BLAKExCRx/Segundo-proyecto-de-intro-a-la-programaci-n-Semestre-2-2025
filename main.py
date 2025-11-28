@@ -14,14 +14,18 @@ puntuacion = Puntuacion()
 
 # Cargar y reproducir música de fondo en bucle
 try:
-    pygame.mixer.music.load('assets/musicadefondojuego.mp3')
+    # Asegúrate de que este archivo exista en la carpeta 'assets'
+    pygame.mixer.music.load('assets/musicadefondojuego.mp3') 
     pygame.mixer.music.play(-1)  # -1 para reproducir en bucle infinito
-except:
-    print("No se pudo cargar la música de fondo")
+except pygame.error:
+    print("No se pudo cargar la música de fondo. Verifica la ruta 'assets/musicadefondojuego.mp3'")
+except Exception as e:
+    print(f"Error desconocido al cargar música: {e}")
 
 # Loop principal del juego
 while True:
     menu = Menu(screen, puntuacion)
+    # Ejecuta el menú, devuelve (modo, dificultad, nombre) o None si sale.
     resultado = menu.run()
 
     if resultado:
@@ -31,18 +35,16 @@ while True:
         
         # Crear y ejecutar el juego
         juego = Juego(modo, dif, nombre, screen, puntuacion)
-        volver_menu = juego.run()
+        # El método .run() de Juego devuelve True si el usuario seleccionó "Salir al Menu" desde la pausa
+        volver_menu = juego.run() 
         
-        # Si volver_menu es True, continúa al menú
-        # Si es False, el juego terminó normalmente
         if volver_menu:
-            print("Volviendo al menú...")
+            print("Volviendo al menú por solicitud del usuario...")
         else:
-            print("Juego terminado, volviendo al menú...")
+            # Si el juego terminó (victoria, derrota o tiempo agotado)
+            print(f"Juego terminado. Volviendo al menú.")
+            
     else:
-        # El usuario eligió salir
-        print("Saliendo...")
-        break
-
-pygame.quit()
-sys.exit()
+        # Si el menú devuelve None (por ejemplo, el usuario cerró la ventana)
+        pygame.quit()
+        sys.exit()
