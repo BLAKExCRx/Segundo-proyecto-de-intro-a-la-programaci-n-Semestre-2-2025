@@ -74,7 +74,56 @@ class Mapa:
         self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
         self.matriz[self.salida[0]][self.salida[1]] = Camino()
         
+    def _dividir(self, rect):
+        """
+        Implementación recursiva del algoritmo de división para laberintos.
+        Crea un muro, dejando una sola apertura para asegurar la conectividad.
+        """
+        f1, c1, f2, c2 = rect
+        df = f2 - f1
+        dc = c2 - c1
         
+        if df < 2 or dc < 2: return # Base case
+
+        # Elegir la orientación de la división (vertical u horizontal)
+        if df > dc:
+            orientacion = 'H' # Horizontal
+        elif dc > df:
+            orientacion = 'V' # Vertical
+        else:
+            orientacion = random.choice(['H', 'V'])
+            
+        if orientacion == 'H':
+            # División horizontal: Muro en fila IMPAR entre f1 y f2
+            f_muro = random.randrange(f1 + 1, f2, 2)
+            
+            # Dibujar muro
+            for c in range(c1, c2 + 1):
+                self.matriz[f_muro][c] = Muro()
+            
+            # Crear una sola abertura en una columna PAR
+            c_apertura = random.randrange(c1, c2 + 1, 2)
+            self.matriz[f_muro][c_apertura] = Camino()
+            
+            # Llamadas recursivas para arriba y abajo
+            self._dividir((f1, c1, f_muro - 1, c2))
+            self._dividir((f_muro + 1, c1, f2, c2))
+            
+        else: # orientacion == 'V'
+            # División vertical: Muro en columna IMPAR entre c1 y c2
+            c_muro = random.randrange(c1 + 1, c2, 2)
+            
+            # Dibujar muro
+            for r in range(f1, f2 + 1):
+                self.matriz[r][c_muro] = Muro()
+            
+            # Crear una sola abertura en una fila PAR
+            f_apertura = random.randrange(f1, f2 + 1, 2)
+            self.matriz[f_apertura][c_muro] = Camino()
+            
+            # Llamadas recursivas para izquierda y derecha
+            self._dividir((f1, c1, f2, c_muro - 1))
+            self._dividir((f1, c_muro + 1, f2, c2))    
 
     def agregar_terrenos_especiales(self):
         """Agrega Lianas y Túneles en caminos existentes, sin romper la conectividad."""
