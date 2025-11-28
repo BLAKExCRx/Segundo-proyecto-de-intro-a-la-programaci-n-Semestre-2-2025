@@ -9,49 +9,54 @@ class Mapa:
     def __init__(self):
         self.filas = FILAS_MAPA
         self.cols = COLUMNAS_MAPA
-        self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
+        self.matriz = []
         self.inicio = (1, 1)
         self.salida = (self.filas - 2, self.cols - 2)
-        self.generar_mapa()
-    
-    def generar_mapa(self):
-        stack = []
-        self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-        stack.append(self.inicio)
         
+        # Generar hasta asegurar que la salida es alcanzable
+        while True:
+            self.generar_laberinto_recursivo()
+            # Asegurar salida limpia
+            self.matriz[self.salida[0]][self.salida[1]] = Camino()
+            # Validar camino
+            if self.hay_camino(self.inicio, self.salida, es_jugador=True):
+                break
+        
+        # Añadir terrenos especiales (Túneles y Lianas) una vez asegurado el camino principal
+        self.agregar_terrenos_especiales()
+
+    def generar_laberinto_recursivo(self):
+        #  Llenar todo de muros
+        self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
+        
+        #  Algoritmo Recursive Backtracker
+        
+        start_x, start_y = 1, 1
+        self.matriz[start_y][start_x] = Camino()
+        stack = [(start_x, start_y)]
+
         while stack:
-            actual = stack[-1]
-            vecinos = self._obtener_vecinos_validos(actual)
+            x, y = stack[-1]
+            vecinos = []
+
+            # Buscar vecinos a 2 celdas de distancia (saltando pared)
+            # Arriba, Abajo, Izquierda, Derecha
+            direcciones = [(0, -2), (0, 2), (-2, 0), (2, 0)]
+            
+            for dx, dy in direcciones:
+                nx, ny = x + dx, y + dy
+                # Verificar límites (dejando borde de muro exterior)
+                if 1 <= nx < self.cols - 1 and 1 <= ny < self.filas - 1:
+                    # Si el destino es Muro, es un candidato válido no visitado
+                    if isinstance(self.matriz[ny][nx], Muro):
+                        vecinos.append((nx, ny, dx // 2, dy // 2))
+
             if vecinos:
-                vecino = random.choice(vecinos)
-                self._conectar_celdas(actual, vecino)
-                stack.append(vecino)
+                nx, ny, wall_x, wall_y = random.choice(vecinos)
+                # Abrir la celda destino
+                self.matriz[ny][nx] = Camino()
+                # Abrir el muro intermedio
+                self.matriz[y + wall_y][x + wall_x] = Camino()
+                stack.append((nx, ny))
             else:
                 stack.pop()
-        
-        self.matriz[self.salida[0]][self.salida[1]] = Camino()
-        
-        if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
-            self.generar_mapa()
-        
-        for i in range(self.filas):
-            for j in range(self.cols):
-                if isinstance(self.matriz[i][j], Camino) and random.random() < 0.2:
-                    if random.random() < 0.5:
-                        self.matriz[i][j] = Liana()
-                    else:
-                        self.matriz[i][j] = Tunel()
-    def _obtener_vecinos_validos(self, pos):
-        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        vecinos = []
-        for d in dirs:
-            ni, nj = pos[0] + d[0] * 2, pos[1] + d[1] * 2
-            if 1 <= ni < self.filas - 1 and 1 <= nj < self.cols - 1 and isinstance(self.matriz[ni][nj], Muro):
-                vecinos.append((ni, nj))
-        return vecinos
-    
-    def _conectar_celdas(self, a, b):
-        mid_i = (a[0] + b[0]) // 2
-        mid_j = (a[1] + b[1]) // 2
-        self.matriz[mid_i][mid_j] = Camino()
-        self.matriz[b[0]][b[1]] = Camino()
