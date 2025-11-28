@@ -51,3 +51,40 @@ class Juego:
         # Opciones del menú de pausa
         self.opciones_pausa = ['Continuar', 'Reiniciar', 'Salir al Menu']
         self.opcion_seleccionada = 0
+
+    def _get_tiempo_limite(self):
+        """Define el tiempo límite para el modo escapa."""
+        if self.modo == 'escapa':
+            if self.dificultad == 'facil': return 240000 
+            if self.dificultad == 'normal': return 180000
+            else: return 120000 
+        return None
+
+    def _get_enemigo_delay(self):
+        """Retorna el delay en ms entre movimientos de enemigos según dificultad."""
+        if self.dificultad == 'facil': return 500
+        elif self.dificultad == 'normal': return 300
+        else: return 200
+
+    def _posicion_aleatoria_valida(self, es_enemigo=False):
+        """Busca una posición válida para entidades."""
+        #  CORRECCIÓN: self.mapa.valid_spawn ya existe gracias a la corrección en mapa.py
+        valid_pos = self.mapa.valid_spawn[:]
+        random.shuffle(valid_pos)
+
+        for r, c in valid_pos:
+            # Revisa que no haya otro enemigo
+            if not any(e.fila == r and e.col == c for e in self.enemigos):
+                # Revisa distancia mínima del jugador (solo si es enemigo y en modo escapa)
+                if es_enemigo and self.modo == 'escapa':
+                    distancia = self._distancia(self.jugador, Enemigo(r, c))
+                    if distancia >= 6:
+                        return r, c
+                elif not es_enemigo: # Si no es enemigo, solo verificar que sea spawn válido
+                    return r, c
+        
+        # Fallback (usa cualquier posición válida si no hay safe-spawn)
+        if valid_pos:
+            return random.choice(valid_pos)
+            
+        return 1, 1 # Fallback final
