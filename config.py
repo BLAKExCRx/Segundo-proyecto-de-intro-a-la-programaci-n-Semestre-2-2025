@@ -16,7 +16,6 @@ COLORES = {
     'text_yellow': (255, 255, 150),
     'border': (100, 150, 255),
     'input_bg': (60, 60, 80),
-    'moon': (0, 220, 255)
 }
 
 # Tamaño del mapa y celdas (para después, en mapa.py y entidades.py)

@@ -40,9 +40,7 @@ class Menu:
         
         self.rects = self._definir_rects()
         
-        # Luna
-        self.moon_pos = (ANCHO // 2 - 300, 50)
-        self.moon_radius = 80
+       
     
     def _definir_rects(self):
       #Define las posiciones y tamaños para botones, inputs y paneles.
@@ -125,12 +123,7 @@ class Menu:
         else:
             self.screen.fill(self.colors['bg_dark'])
         
-        # Luna glow
-        for r in range(self.moon_radius, 0, -5):
-            alpha = 255 * (r / self.moon_radius) * 0.8
-            surf = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
-            pygame.draw.circle(surf, (*self.colors['moon'], int(alpha)), (r, r), r)
-            self.screen.blit(surf, (self.moon_pos[0] - r, self.moon_pos[1] - r))
+    
         
         # Título
         title_surf = self.font_title.render("ESCAPA DEL LABERINTO", True, self.colors['text_white'])
