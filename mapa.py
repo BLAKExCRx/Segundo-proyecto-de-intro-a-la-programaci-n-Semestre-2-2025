@@ -6,24 +6,16 @@ from config import FILAS_MAPA, COLUMNAS_MAPA, TAM_CELDA, COLORES_JUEGO, ANCHO, A
 from entidades import Camino, Liana, Tunel, Muro
 #prueba de generacion de mapa primera parte , probablemente falle terriblemente XD
 class Mapa:
-    def __init__(self):
+    def __init__(self, modo):  # <-- AGREGAR PARÁMETRO modo
+        self.modo = modo
         self.filas = FILAS_MAPA
         self.cols = COLUMNAS_MAPA
         self.matriz = []
-        self.inicio = (1, 1)
-        self.salida = (self.filas - 2, self.cols - 2)
+        self.inicio = (1, 1)  # Esquina superior izquierda
+        self.salida = (self.filas - 2, self.cols - 2)  # Esquina opuesta
         
         # Generar hasta asegurar que la salida es alcanzable
-        while True:
-            self.generar_laberinto_recursivo()
-            # Asegurar salida limpia
-            self.matriz[self.salida[0]][self.salida[1]] = Camino()
-            # Validar camino
-            if self.hay_camino(self.inicio, self.salida, es_jugador=True):
-                break
-        
-        # Añadir terrenos especiales (Túneles y Lianas) una vez asegurado el camino principal
-        self.agregar_terrenos_especiales()
+        self._generar_mapa()
 
     def generar_laberinto_recursivo(self):
         #  Llenar todo de muros
