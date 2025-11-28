@@ -17,6 +17,39 @@ class Mapa:
         # Generar hasta asegurar que la salida es alcanzable
         self._generar_mapa()
 
+    def _generar_mapa(self):
+        """Genera el mapa asegurando camino válido"""
+        intentos = 0
+        max_intentos = 20
+        
+        while intentos < max_intentos:
+            self.generar_laberinto_recursivo()
+            
+            # Validar camino para jugador
+            if self.hay_camino(self.inicio, self.salida, es_jugador=True):
+                print(f"✓ Mapa válido generado en intento {intentos + 1}")
+                self._imprimir_estadisticas()
+                break
+            intentos += 1
+            print(f"✗ Intento {intentos} falló, regenerando...")
+        
+        if intentos >= max_intentos:
+            print(" Advertencia: Generando mapa de emergencia")
+            self._generar_mapa_emergencia()
+        
+        # Añadir terrenos especiales solo después de asegurar el camino
+        self.agregar_terrenos_especiales()
+        
+    def _imprimir_estadisticas(self):
+        """Imprime estadísticas del mapa generado"""
+        total_celdas = self.filas * self.cols
+        caminos = sum(1 for fila in self.matriz for celda in fila if isinstance(celda, Camino))
+        muros = sum(1 for fila in self.matriz for celda in fila if isinstance(celda, Muro))
+        
+        print(f"  Celdas totales: {total_celdas}")
+        print(f"  Caminos: {caminos} ({caminos*100//total_celdas}%)")
+        print(f"  Muros: {muros} ({muros*100//total_celdas}%)")
+
     def generar_laberinto_recursivo(self):
         #  Llenar todo de muros
         self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
