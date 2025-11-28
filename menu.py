@@ -1,18 +1,16 @@
-#archivo de menu.py
-#primero los import's
-#
+# menu.py
 import pygame 
 import sys
-from puntuacion import Puntuacion #se importa de puntuacion la tabla de puntacion
-from config import ANCHO, ALTO, FPS, COLORES # se usa para importar valores como la altura,ancho colores y mas
-
+from puntuacion import Puntuacion
+from config import ANCHO, ALTO, FPS, COLORES
 
 class Menu:
-    """Clase principal .Maneja la interfaz gráfica, 
-    entrada de nombre, selección de modo y dificultad,y visualización de high scores"""
+    """Clase principal. Maneja la interfaz gráfica, 
+    entrada de nombre, selección de modo y dificultad, y visualización de high scores"""
+    
     def __init__(self, screen, puntuacion):
         """Inicia el menú con la pantalla y el objeto de puntuación.
-    Carga fuentes, colores, fondo, estados iniciales y define rectángulos para elementos UI."""
+        Carga fuentes, colores, fondo, estados iniciales y define rectángulos para elementos UI."""
         self.screen = screen
         self.puntuacion = puntuacion
         self.clock = pygame.time.Clock()
@@ -36,17 +34,13 @@ class Menu:
         self.cursor_visible = True
         self.cursor_timer = 0
         self.modo_seleccionado = None
-        self.dificultad = 'medio'
+        self.dificultad = 'normal'
         
         self.rects = self._definir_rects()
-        
-       
     
     def _definir_rects(self):
-      #Define las posiciones y tamaños para botones, inputs y paneles.
-      #Retorna un diccionario con claves para cada elemento UI.
-      #aclaracion del nombre: 'rects' es abreviatura en inglés de 'rectangles' que es lo mas corto de usar.
-       
+        """Define las posiciones y tamaños para botones, inputs y paneles.
+        Retorna un diccionario con claves para cada elemento UI."""
         rects = {}
         rects['input_nombre'] = pygame.Rect(ANCHO - 400, 50, 350, 40)
         rects['panel_modos'] = pygame.Rect(50, 200, 300, 250)
@@ -55,16 +49,19 @@ class Menu:
         rects['salir'] = pygame.Rect(55, 390, 290, 50)
 
         rects['dificil_facil'] = pygame.Rect(ANCHO // 2 - 75, 150, 150, 50)
-        rects['dificil_medio'] = pygame.Rect(ANCHO // 2 + 75, 150, 150, 50)
+        rects['dificil_normal'] = pygame.Rect(ANCHO // 2 + 75, 150, 150, 50)
         rects['dificil_dificil'] = pygame.Rect(ANCHO // 2 + 225, 150, 150, 50)
 
         rects['top_escapa'] = pygame.Rect(ANCHO // 2 - 75, 250, 150, 150)
         rects['top_cazador'] = pygame.Rect(ANCHO // 2 + 125, 250, 150, 150)
+        
+        # Rectángulo para mostrar nombre del jugador en menú principal
+        rects['label_jugador'] = pygame.Rect(ANCHO - 400, 50, 350, 40)
+        
         return rects
-    # se cambio handle_events por uno mas sencillo, eventos
+    
     def eventos(self, events):
-        """Procesa la lista de eventos de Pygame (clics, teclas, etc.).en el esta el cierre, entrada de texto para nombre,
-         y clics en botones para modo/dificultad. Retorna True si debe salir o iniciar juego."""
+        """Procesa la lista de eventos de Pygame (clics, teclas, etc.)"""
         for event in events:
             if event.type == pygame.QUIT:
                 self.state = 'exit'
@@ -77,11 +74,11 @@ class Menu:
                             self.state = 'main_menu'
                     elif event.key == pygame.K_BACKSPACE:
                         self.nombre = self.nombre[:-1]
-                    elif len(self.nombre) < 15:
-                        self.nombre += event.unicode
                     elif event.key == pygame.K_ESCAPE:
                         self.state = 'exit'
                         return True
+                    elif len(self.nombre) < 15 and event.unicode.isprintable():
+                        self.nombre += event.unicode
             
             if event.type == pygame.MOUSEBUTTONDOWN and self.state == 'main_menu':
                 pos = pygame.mouse.get_pos()
@@ -96,34 +93,30 @@ class Menu:
                     return True
                 elif self.rects['dificil_facil'].collidepoint(pos):
                     self.dificultad = 'facil'
-                elif self.rects['dificil_medio'].collidepoint(pos):
-                    self.dificultad = 'medio'
+                elif self.rects['dificil_normal'].collidepoint(pos):
+                    self.dificultad = 'normal'
                 elif self.rects['dificil_dificil'].collidepoint(pos):
                     self.dificultad = 'dificil'
         
         return False
     
     def _iniciar_juego(self):
-        """Prepara y retorna los datos para iniciar el juego: (modo, dificultad, nombre). Se llama cuando se selecciona un modo."""
+        """Prepara y retorna los datos para iniciar el juego"""
         return (self.modo_seleccionado, self.dificultad, self.nombre.strip())
     
     def update(self, dt):
-        """Actualiza el estado dinámico del menú, como el parpadeo del cursor.
-    'update' en inglés = 'actualizar'"""
+        """Actualiza el estado dinámico del menú, como el parpadeo del cursor"""
         self.cursor_timer += dt
         if self.cursor_timer > 500:
             self.cursor_visible = not self.cursor_visible
             self.cursor_timer = 0
     
     def draw(self):
-        """ Dibuja el menú completo en la pantalla: fondo, título, elementos UI, botones y tablas.Dependiendo del estado, 
-        muestra input de nombre o menú principal.'draw' = 'dibujar', es mas corto en ingles asi que use ese."""
+        """Dibuja el menú completo en la pantalla"""
         if self.background:
             self.screen.blit(self.background, (0, 0))
         else:
             self.screen.fill(self.colors['bg_dark'])
-        
-    
         
         # Título
         title_surf = self.font_title.render("ESCAPA DEL LABERINTO", True, self.colors['text_white'])
@@ -139,9 +132,17 @@ class Menu:
             if self.cursor_visible:
                 cursor = self.font_button.render('|', True, self.colors['text_white'])
                 self.screen.blit(cursor, (self.rects['input_nombre'].x + 10 + text_surf.get_width(), self.rects['input_nombre'].y + 5))
+            
+            # Instrucción
+            instruccion = self.font_small.render("Presiona ENTER para continuar", True, self.colors['text_yellow'])
+            self.screen.blit(instruccion, (self.rects['input_nombre'].x, self.rects['input_nombre'].y + 50))
         
         elif self.state == 'main_menu':
             mouse_pos = pygame.mouse.get_pos()
+            
+            # MOSTRAR NOMBRE DEL JUGADOR EN MENÚ PRINCIPAL
+            jugador_label = self.font_subtitle.render(f"Jugador: {self.nombre}", True, (0, 0, 0))  # Negro para mejor visibilidad
+            self.screen.blit(jugador_label, (self.rects['label_jugador'].x, self.rects['label_jugador'].y))
             
             # Panel modos
             pygame.draw.rect(self.screen, self.colors['bg_panel'], self.rects['panel_modos'], border_radius=20)
@@ -165,9 +166,9 @@ class Menu:
             self.screen.blit(label_diff, (self.rects['dificil_facil'].x, self.rects['dificil_facil'].y - 30))
             
             # Botones dificultad
-            diffs = ['facil', 'medio', 'dificil']
+            diffs = ['facil', 'normal', 'dificil']
             for i, diff in enumerate(diffs):
-                rect = [self.rects['dificil_facil'], self.rects['dificil_medio'], self.rects['dificil_dificil']][i]
+                rect = [self.rects['dificil_facil'], self.rects['dificil_normal'], self.rects['dificil_dificil']][i]
                 color = self.colors['bg_button'] if diff != self.dificultad else self.colors['bg_button_selected']
                 if rect.collidepoint(mouse_pos):
                     color = self.colors['bg_button_hover'] if diff != self.dificultad else self.colors['bg_button_selected']
@@ -189,30 +190,31 @@ class Menu:
                 top5 = self.puntuacion.get_top5(modo)
                 y_start = rect.y + 30
                 for i in range(5):
-                    score = top5[i] if i < len(top5) else {'nombre': '', 'puntaje': 0}
-                    pos_text = self.font_small.render(f"{i+1}.", True, self.colors['text_white'])
-                    score_text = self.font_small.render(str(score['puntaje']), True, self.colors['text_white'])
-                    self.screen.blit(pos_text, (rect.x + 10, y_start + i*25))
-                    self.screen.blit(score_text, (rect.x + 40, y_start + i*25))
+                    if i < len(top5):
+                        score = top5[i]
+                        pos_text = self.font_small.render(f"{i+1}.", True, self.colors['text_white'])
+                        name_text = self.font_small.render(score['nombre'][:8], True, self.colors['text_white'])
+                        score_text = self.font_small.render(str(score['puntaje']), True, self.colors['text_white'])
+                        self.screen.blit(pos_text, (rect.x + 10, y_start + i*25))
+                        self.screen.blit(name_text, (rect.x + 40, y_start + i*25))
+                        self.screen.blit(score_text, (rect.x + 100, y_start + i*25))
     
     def run(self):
-        """
-    Ejecuta el loop principal del menú: procesa eventos, actualiza y dibuja.
-    Continúa hasta seleccionar modo (inicia juego) o salir.
-    'run' = 'ejecutar" es mas corto.
-    """
+        """Ejecuta el loop principal del menú"""
         running = True
         while running:
             dt = self.clock.tick(FPS)
             events = pygame.event.get()
             
-            if self.eventos(events):
+            resultado = self.eventos(events)
+            if resultado:
                 if self.state == 'exit':
                     return None
                 else:
-                    return self._iniciar_juego()
+                    return resultado
             
             self.update(dt)
             self.draw()
             pygame.display.flip()
+        
         return None

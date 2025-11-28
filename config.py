@@ -19,21 +19,22 @@ COLORES = {
     'input_bg': (60, 60, 80),
 }
 
-# Tamaño del mapa y celdas (para después, en mapa.py y entidades.py)
-FILAS_MAPA = 15
-COLUMNAS_MAPA = 15
+# Tamaño del mapa - Ajustado para pantalla completa
+FILAS_MAPA = 16
+COLUMNAS_MAPA = 30
 TAM_CELDA = 40
 
-# Colores del juego mejorados según tu imagen
+# Colores del juego mejorados
 COLORES_JUEGO = {
     'camino': (180, 140, 130),      # Café rojizo claro
-    'liana': (50, 205, 50),          # Verde lima (lianas)
-    'tunel': (100, 100, 255),        # Azul claro (túneles)
-    'muro': (80, 80, 80),            # Gris oscuro (muros)
-    'jugador': (0, 150, 255),        # Azul (jugador)
-    'enemigo': (255, 50, 50),        # Rojo (enemigos)
-    'salida': (255, 255, 0),         # Amarillo (salida)
-    'trampa': (200, 0, 200)          # Morado (trampas)
+    'liana': (50, 150, 50),         # 🟢 Verde oscuro para Lianas (Accesible solo a Cazadores)
+    'tunel': (100, 100, 100),       # ⚪ Gris para Túneles (Accesible solo al Jugador/Presa)
+    'muro': (40, 40, 40),           # ⬛ Gris muy oscuro para Muros
+    'trampa': (255, 69, 0),         # 🟠 Naranja brillante
+    'jugador': (0, 0, 255),         # 🔵 Azul
+    'enemigo': (255, 0, 0),         # 🔴 Rojo
+    'inicio': (0, 255, 0),          # 🟢 Verde
+    'salida': (255, 255, 0)         # 🟡 Amarillo
 }
 # Archivos highscores
 ARCHIVOS_HIGHSCORES = {
