@@ -89,40 +89,73 @@ class Mapa:
         self.matriz[self.salida[0]][self.salida[1]] = Camino()
 
     def generar_laberinto_recursivo(self):
-        #  Llenar todo de muros
+        """Genera laberinto usando algoritmo de Prim modificado - garantiza conectividad completa"""
+        # Llenar todo de muros
         self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
         
-        #  Algoritmo Recursive Backtracker
+        # Empezar desde la posición de inicio
+        inicio_fila, inicio_col = 1, 1
+        self.matriz[inicio_fila][inicio_col] = Camino()
         
-        start_x, start_y = 1, 1
-        self.matriz[start_y][start_x] = Camino()
-        stack = [(start_x, start_y)]
-
-        while stack:
-            x, y = stack[-1]
-            vecinos = []
-
-            # Buscar vecinos a 2 celdas de distancia (saltando pared)
-            # Arriba, Abajo, Izquierda, Derecha
-            direcciones = [(0, -2), (0, 2), (-2, 0), (2, 0)]
+        # Lista de muros frontera (muros adyacentes a celdas visitadas)
+        muros = []
+        
+        # Agregar muros adyacentes al inicio
+        def agregar_muros(fila, col):
+            for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nf, nc = fila + df, col + dc
+                if 0 < nf < self.filas - 1 and 0 < nc < self.cols - 1:
+                    if isinstance(self.matriz[nf][nc], Muro):
+                        if (nf, nc) not in muros:
+                            muros.append((nf, nc))
+        
+        agregar_muros(inicio_fila, inicio_col)
+        
+        # Mientras haya muros en la frontera
+        while muros:
+            # Elegir un muro aleatorio
+            muro_actual = random.choice(muros)
+            muros.remove(muro_actual)
+            muro_fila, muro_col = muro_actual
             
-            for dx, dy in direcciones:
-                nx, ny = x + dx, y + dy
-                # Verificar límites (dejando borde de muro exterior)
-                if 1 <= nx < self.cols - 1 and 1 <= ny < self.filas - 1:
-                    # Si el destino es Muro, es un candidato válido no visitado
-                    if isinstance(self.matriz[ny][nx], Muro):
-                        vecinos.append((nx, ny, dx // 2, dy // 2))
-
-            if vecinos:
-                nx, ny, wall_x, wall_y = random.choice(vecinos)
-                # Abrir la celda destino
-                self.matriz[ny][nx] = Camino()
-                # Abrir el muro intermedio
-                self.matriz[y + wall_y][x + wall_x] = Camino()
-                stack.append((nx, ny))
-            else:
-                stack.pop()
+            # Contar vecinos que son camino
+            vecinos_camino = []
+            for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nf, nc = muro_fila + df, muro_col + dc
+                if 0 <= nf < self.filas and 0 <= nc < self.cols:
+                    if isinstance(self.matriz[nf][nc], Camino):
+                        vecinos_camino.append((nf, nc))
+            
+            # Si solo tiene un vecino camino, convertir el muro en camino
+            if len(vecinos_camino) == 1:
+                self.matriz[muro_fila][muro_col] = Camino()
+                agregar_muros(muro_fila, muro_col)
+        
+        # Crear algunos ciclos adicionales (20% de muros aleatorios se convierten en camino)
+        num_ciclos = int((self.filas * self.cols) * 0.05)
+        for _ in range(num_ciclos):
+            fila = random.randint(1, self.filas - 2)
+            col = random.randint(1, self.cols - 2)
+            if isinstance(self.matriz[fila][col], Muro):
+                # Verificar que tiene al menos 2 vecinos camino
+                vecinos_camino = 0
+                for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nf, nc = fila + df, col + dc
+                    if 0 <= nf < self.filas and 0 <= nc < self.cols:
+                        if isinstance(self.matriz[nf][nc], Camino):
+                            vecinos_camino += 1
+                
+                if vecinos_camino >= 2:
+                    self.matriz[fila][col] = Camino()
+        
+        # Asegurar que inicio y salida son Camino
+        self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
+        self.matriz[self.salida[0]][self.salida[1]] = Camino()
+        
+        # Asegurar camino directo a la salida si está bloqueada
+        if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
+            self._crear_camino_emergencia()
+            
     def agregar_terrenos_especiales(self):
         pass
 
@@ -131,7 +164,7 @@ class Mapa:
 
     def encontrar_camino(self, start_fila, start_col, goal_fila, goal_col, es_jugador=False):
         pass
-    
+
     def _es_terreno_especial(self, fila, col):
         """Verifica si una celda es Túnel o Liana"""
         if 0 <= fila < self.filas and 0 <= col < self.cols:
