@@ -145,18 +145,47 @@ class Mapa:
                    abs(r - self.salida[0]) + abs(c - self.salida[1]) > 5:
                     self.valid_spawn.append((r, c))
 
-    def hay_camino(self, start, goal, es_jugador=True):
-        pass
+    def hay_camino(self, start, goal, es_rol_cazador=False):
+        """BFS para verificar si hay camino válido para el rol específico (Presa o Cazador)"""
+        fila_start, col_start = start
+        fila_goal, col_goal = goal
+        # ... (Mantener la implementación de hay_camino con la lógica de es_rol_cazador)
+        visitado = [[False] * self.cols for _ in range(self.filas)]
+        queue = deque([(fila_start, col_start)])
+        visitado[fila_start][col_start] = True
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    def encontrar_camino(self, start_fila, start_col, goal_fila, goal_col, es_jugador=False):
-        pass
+        while queue:
+            fila, col = queue.popleft()
+            if (fila, col) == (fila_goal, col_goal):
+                return True
+            
+            for df, dc in direcciones:
+                nf, nc = fila + df, col + dc
+                if 0 <= nf < self.filas and 0 <= nc < self.cols and not visitado[nf][nc]:
+                    terreno = self.matriz[nf][nc]
+                    
+                    if es_rol_cazador:
+                        # Si es Cazador, usa la regla de 'enemigo' (puede usar Lianas)
+                        accesible = terreno.es_accesible_enemigo() 
+                    else:
+                        # Si es Presa, usa la regla de 'jugador' (puede usar Túneles)
+                        accesible = terreno.es_accesible_jugador() 
 
-    def _es_terreno_especial(self, fila, col):
-        """Verifica si una celda es Túnel o Liana"""
-        if 0 <= fila < self.filas and 0 <= col < self.cols:
-            terreno = self.matriz[fila][col]
-            return isinstance(terreno, Tunel) or isinstance(terreno, Liana)
+                    if accesible:
+                        visitado[nf][nc] = True
+                        queue.append((nf, nc))
         return False
     
+    
+    
     def dibujar(self, screen):
-        pass
+        """Dibuja el mapa en la pantalla, considerando HUD superior"""
+        for fila in range(self.filas):
+            for col in range(self.cols):
+                self.matriz[fila][col].dibujar(screen, fila, col)
+                
+        # Dibujar salida con color especial (por ejemplo, blanco)
+        salida_x = self.salida[1] * TAM_CELDA
+        salida_y = self.salida[0] * TAM_CELDA + HUD_HEIGHT
+        pygame.draw.rect(screen, (255, 255, 255), (salida_x, salida_y, TAM_CELDA, TAM_CELDA), 3)
