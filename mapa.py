@@ -177,7 +177,37 @@ class Mapa:
                         queue.append((nf, nc))
         return False
     
-    
+    def encontrar_camino(self, start_fila, start_col, goal_fila, goal_col, es_rol_cazador=True):
+        """BFS para encontrar path más corto considerando el rol (Presa o Cazador)"""
+        # ... (Mantener la implementación de encontrar_camino con la lógica de es_rol_cazador)
+        visitado = [[False] * self.cols for _ in range(self.filas)]
+        # Almacena (fila, col, path_lista)
+        queue = deque([(start_fila, start_col, [])])
+        visitado[start_fila][start_col] = True
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        while queue:
+            fila, col, path = queue.popleft()
+            current = (fila, col)
+            path = path + [current]
+            
+            if current == (goal_fila, goal_col):
+                return path
+            
+            for df, dc in direcciones:
+                nf, nc = fila + df, col + dc
+                if 0 <= nf < self.filas and 0 <= nc < self.cols and not visitado[nf][nc]:
+                    terreno = self.matriz[nf][nc]
+                    
+                    if es_rol_cazador:
+                        accesible = terreno.es_accesible_enemigo()
+                    else:
+                        accesible = terreno.es_accesible_jugador()
+                        
+                    if accesible:
+                        visitado[nf][nc] = True
+                        queue.append((nf, nc, path))
+        return []
     
     def dibujar(self, screen):
         """Dibuja el mapa en la pantalla, considerando HUD superior"""
