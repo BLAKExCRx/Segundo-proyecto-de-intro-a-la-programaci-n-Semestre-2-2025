@@ -264,3 +264,63 @@ class Juego:
         self.mapa.matriz[fila][col] = terreno_original
         
         return not hay_camino
+
+    def _actualizar(self, dt):
+        keys = pygame.key.get_pressed()
+        moviendo = any([keys[pygame.K_UP], keys[pygame.K_DOWN], keys[pygame.K_LEFT], keys[pygame.K_RIGHT]])
+        
+        if not moviendo:
+            self.jugador.actualizar_energia()
+        
+        self._actualizar_tiempo(dt)
+        self._actualizar_puntaje(dt)
+        self._actualizar_recarga_trampas(dt)
+        
+        self.enemigo_timer += dt
+        if self.enemigo_timer >= self.enemigo_delay:
+            self._mover_enemigos()
+            self.enemigo_timer = 0
+        
+        self._verificar_colisiones()
+        self._verificar_victoria_derrota()
+
+    def _actualizar_tiempo(self, dt):
+        """Actualiza el tiempo según el modo."""
+        tiempo_transcurrido = pygame.time.get_ticks() - self.tiempo_inicio
+        
+        if self.modo == 'escapa':
+            # En modo escapa, el tiempo suma normalmente
+            self.tiempo_actual = tiempo_transcurrido
+        else:
+            # En modo cazador, el tiempo resta desde el límite
+            self.tiempo_actual = self.tiempo_limite - tiempo_transcurrido
+            
+            # Verificar si se acabó el tiempo
+            if self.tiempo_actual <= 0:
+                self.tiempo_actual = 0
+                self._terminar_juego("¡TIEMPO AGOTADO!")
+
+    def _actualizar_puntaje(self, dt):
+        """Actualiza el sistema de puntuación."""
+        if self.modo == 'escapa':
+            # Restar puntos cada 2 segundos
+            self.puntaje_resta_timer += dt
+            if self.puntaje_resta_timer >= self.puntaje_resta_delay:
+                self.puntaje = max(0, self.puntaje - self.puntaje_resta_cantidad)
+                self.puntaje_resta_timer = 0
+                
+                # Si llega a 0 puntos, game over
+                if self.puntaje <= 0:
+                    self._terminar_juego("¡PUNTOS AGOTADOS!")
+
+
+
+    def _actualizar_recarga_trampas(self, dt):
+        """Recarga trampas cada 5 segundos hasta un máximo de 3."""
+        if self.modo == 'escapa':
+            self.trampa_recarga_timer += dt
+            if self.trampa_recarga_timer >= self.trampa_recarga_delay:
+                if self.trampas_disponibles < self.max_trampas_activas:
+                    self.trampas_disponibles += 1
+                    print(f"Trampa recargada. Disponibles: {self.trampas_disponibles}")
+                self.trampa_recarga_timer = 0
