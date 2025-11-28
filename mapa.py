@@ -55,43 +55,7 @@ class Mapa:
         for tipo, count in conteo.items():
             print(f"  {tipo.capitalize()}: {count} ({count/total:.1%})")
 
-    def _crear_camino_emergencia(self):
-        """Crea un camino directo de inicio a salida si está bloqueado"""
-        print("Creando camino de emergencia...")
-        fila_actual, col_actual = self.inicio
-        fila_meta, col_meta = self.salida
-        
-        # Crear camino horizontal hasta la columna de la salida
-        while col_actual != col_meta:
-            self.matriz[fila_actual][col_actual] = Camino()
-            col_actual += 1 if col_actual < col_meta else -1
-        
-        # Crear camino vertical hasta la fila de la salida
-        while fila_actual != fila_meta:
-            self.matriz[fila_actual][col_actual] = Camino()
-            fila_actual += 1 if fila_actual < fila_meta else -1
-        
-        # Asegurar salida
-        self.matriz[fila_meta][col_meta] = Camino()
 
-    def _generar_mapa_emergencia(self):
-        """Genera un mapa simple garantizado si todo falla"""
-        print("Generando mapa de emergencia simple...")
-        self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
-        
-        # Crear caminos horizontales cada 2 filas
-        for fila in range(1, self.filas - 1, 2):
-            for col in range(1, self.cols - 1):
-                self.matriz[fila][col] = Camino()
-        
-        # Crear caminos verticales cada 4 columnas
-        for col in range(1, self.cols - 1, 4):
-            for fila in range(1, self.filas - 1):
-                self.matriz[fila][col] = Camino()
-        
-        # Asegurar inicio y salida
-        self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-        self.matriz[self.salida[0]][self.salida[1]] = Camino()
 
     def generar_laberinto_recursivo(self):
         """Genera un laberinto usando el algoritmo de división recursiva."""
@@ -108,7 +72,7 @@ class Mapa:
         
         # Asegurar inicio y fin como Camino
         self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-        self.matriz[self.salida[0]][self.salida[1]] = Camino())
+        self.matriz[self.salida[0]][self.salida[1]] = Camino()
         
         
 
@@ -169,7 +133,17 @@ class Mapa:
             else:
                 # El cambio rompió el camino del Cazador, revertir
                 self.matriz[r][c] = terreno_original
-
+    def actualizar_valid_spawn(self):
+        """Identifica posiciones válidas para reaparición de entidades (que no sean muros ni cerca del inicio/salida)."""
+        self.valid_spawn.clear()
+        for r in range(1, self.filas - 1):
+            for c in range(1, self.cols - 1):
+                terreno = self.matriz[r][c]
+                # Posición válida si no es muro y no está en el área de inicio/salida
+                if not isinstance(terreno, Muro) and \
+                   abs(r - self.inicio[0]) + abs(c - self.inicio[1]) > 5 and \
+                   abs(r - self.salida[0]) + abs(c - self.salida[1]) > 5:
+                    self.valid_spawn.append((r, c))
 
     def hay_camino(self, start, goal, es_jugador=True):
         pass
