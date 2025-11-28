@@ -155,9 +155,51 @@ class Mapa:
         # Asegurar camino directo a la salida si está bloqueada
         if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
             self._crear_camino_emergencia()
-            
+
     def agregar_terrenos_especiales(self):
-        pass
+        """Añade lianas y túneles entre muros sin bloquear el camino principal"""
+        num_especiales = random.randint(3, 8)
+        agregados = 0
+        intentos = 0
+        max_intentos = 100
+        
+        while agregados < num_especiales and intentos < max_intentos:
+            fila = random.randint(1, self.filas - 2)
+            col = random.randint(1, self.cols - 2)
+            
+            # Solo reemplazar muros entre caminos
+            if isinstance(self.matriz[fila][col], Muro):
+                # Verificar que hay caminos adyacentes (es un muro "entre" caminos)
+                adyacentes = [
+                    (fila-1, col), (fila+1, col), 
+                    (fila, col-1), (fila, col+1)
+                ]
+                
+                num_caminos_ady = sum(
+                    1 for f, c in adyacentes 
+                    if 0 <= f < self.filas and 0 <= c < self.cols 
+                    and isinstance(self.matriz[f][c], Camino)
+                )
+                
+                # Si tiene al menos 2 caminos adyacentes, es buen candidato
+                if num_caminos_ady >= 2:
+                    # Elegir Liana o Túnel
+                    tipo = random.choice([Liana, Tunel])
+                    terreno_original = self.matriz[fila][col]
+                    self.matriz[fila][col] = tipo()
+                    
+                    # Verificar que no rompe el camino del jugador
+                    if tipo == Liana:
+                        if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
+                            # Revertir si bloquea
+                            self.matriz[fila][col] = terreno_original
+                        else:
+                            agregados += 1
+                    else:
+                        agregados += 1
+            
+            intentos += 1
+
 
     def hay_camino(self, start, goal, es_jugador=True):
         pass
