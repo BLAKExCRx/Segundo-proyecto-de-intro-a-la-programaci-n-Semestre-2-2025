@@ -39,7 +39,7 @@ class Mapa:
         
         # Añadir terrenos especiales solo después de asegurar el camino
         self.agregar_terrenos_especiales()
-        
+
     def _imprimir_estadisticas(self):
         """Imprime estadísticas del mapa generado"""
         total_celdas = self.filas * self.cols
@@ -49,6 +49,44 @@ class Mapa:
         print(f"  Celdas totales: {total_celdas}")
         print(f"  Caminos: {caminos} ({caminos*100//total_celdas}%)")
         print(f"  Muros: {muros} ({muros*100//total_celdas}%)")
+
+    def _crear_camino_emergencia(self):
+        """Crea un camino directo de inicio a salida si está bloqueado"""
+        print("Creando camino de emergencia...")
+        fila_actual, col_actual = self.inicio
+        fila_meta, col_meta = self.salida
+        
+        # Crear camino horizontal hasta la columna de la salida
+        while col_actual != col_meta:
+            self.matriz[fila_actual][col_actual] = Camino()
+            col_actual += 1 if col_actual < col_meta else -1
+        
+        # Crear camino vertical hasta la fila de la salida
+        while fila_actual != fila_meta:
+            self.matriz[fila_actual][col_actual] = Camino()
+            fila_actual += 1 if fila_actual < fila_meta else -1
+        
+        # Asegurar salida
+        self.matriz[fila_meta][col_meta] = Camino()
+
+    def _generar_mapa_emergencia(self):
+        """Genera un mapa simple garantizado si todo falla"""
+        print("Generando mapa de emergencia simple...")
+        self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
+        
+        # Crear caminos horizontales cada 2 filas
+        for fila in range(1, self.filas - 1, 2):
+            for col in range(1, self.cols - 1):
+                self.matriz[fila][col] = Camino()
+        
+        # Crear caminos verticales cada 4 columnas
+        for col in range(1, self.cols - 1, 4):
+            for fila in range(1, self.filas - 1):
+                self.matriz[fila][col] = Camino()
+        
+        # Asegurar inicio y salida
+        self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
+        self.matriz[self.salida[0]][self.salida[1]] = Camino()
 
     def generar_laberinto_recursivo(self):
         #  Llenar todo de muros
@@ -85,9 +123,21 @@ class Mapa:
                 stack.append((nx, ny))
             else:
                 stack.pop()
+    def agregar_terrenos_especiales(self):
+        pass
+
+    def hay_camino(self, start, goal, es_jugador=True):
+        pass
+
+    def encontrar_camino(self, start_fila, start_col, goal_fila, goal_col, es_jugador=False):
+        pass
+    
     def _es_terreno_especial(self, fila, col):
-        """Verifica si una celda es Túnel o Liana."""
+        """Verifica si una celda es Túnel o Liana"""
         if 0 <= fila < self.filas and 0 <= col < self.cols:
             terreno = self.matriz[fila][col]
             return isinstance(terreno, Tunel) or isinstance(terreno, Liana)
         return False
+    
+    def dibujar(self, screen):
+        pass
