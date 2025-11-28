@@ -41,3 +41,17 @@ class Mapa:
                         self.matriz[i][j] = Liana()
                     else:
                         self.matriz[i][j] = Tunel()
+    def _obtener_vecinos_validos(self, pos):
+        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        vecinos = []
+        for d in dirs:
+            ni, nj = pos[0] + d[0] * 2, pos[1] + d[1] * 2
+            if 1 <= ni < self.filas - 1 and 1 <= nj < self.cols - 1 and isinstance(self.matriz[ni][nj], Muro):
+                vecinos.append((ni, nj))
+        return vecinos
+    
+    def _conectar_celdas(self, a, b):
+        mid_i = (a[0] + b[0]) // 2
+        mid_j = (a[1] + b[1]) // 2
+        self.matriz[mid_i][mid_j] = Camino()
+        self.matriz[b[0]][b[1]] = Camino()
