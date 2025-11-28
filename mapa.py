@@ -60,3 +60,9 @@ class Mapa:
                 stack.append((nx, ny))
             else:
                 stack.pop()
+    def _es_terreno_especial(self, fila, col):
+        """Verifica si una celda es Túnel o Liana."""
+        if 0 <= fila < self.filas and 0 <= col < self.cols:
+            terreno = self.matriz[fila][col]
+            return isinstance(terreno, Tunel) or isinstance(terreno, Liana)
+        return False
