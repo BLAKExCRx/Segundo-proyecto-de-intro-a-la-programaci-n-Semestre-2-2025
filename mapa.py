@@ -1,10 +1,11 @@
-#mapa.py en proceso
+# mapa.py
 import random
 from collections import deque
 import pygame
 from config import FILAS_MAPA, COLUMNAS_MAPA, TAM_CELDA, COLORES_JUEGO, ANCHO, ALTO, HUD_HEIGHT
-from entidades import Camino, Liana, Tunel, Muro
-#prueba de generacion de mapa primera parte , probablemente falle terriblemente XD
+
+from entidades import Camino, Liana, Tunel, Muro, Trampa 
+
 class Mapa:
     def __init__(self, modo):
         self.modo = modo
@@ -13,251 +14,147 @@ class Mapa:
         self.matriz = []
         self.inicio = (1, 1)
         self.salida = (self.filas - 2, self.cols - 2)
+        self.valid_spawn = [] # 🟢 CORRECCIÓN 1: Inicializar el atributo
         
-        # Lista de posibles puntos de aparición de entidades
-        self.valid_spawn = [] 
-        
+        # Generar hasta asegurar que la salida es alcanzable
         self._generar_mapa()
 
     def _generar_mapa(self):
-        """Genera el mapa asegurando camino válido para el rol de Presa"""
+        """Genera el mapa asegurando camino válido para el rol de Presa."""
         intentos = 0
         max_intentos = 20
         
         while intentos < max_intentos:
             self.generar_laberinto_recursivo()
             
-            #  Validar camino para el rol de Presa (es_rol_cazador=False, usa Túneles)
-            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=False):
+            # Generar múltiples atajos para asegurar la conectividad
+            self._generar_atajos(num_lianas=8, num_tuneles=8) 
+            
+            # Validar camino para el rol de PRESA (es_jugador=True)
+            if self.hay_camino(self.inicio, self.salida, es_jugador=True):
                 print(f"✓ Mapa válido generado en intento {intentos + 1}")
+                
+                #  CORRECCIÓN 2: Llenar el atributo valid_spawn
+                self.valid_spawn = []
+                for r in range(1, self.filas - 1):
+                    for c in range(1, self.cols - 1):
+                        # Solo considera Caminos y excluye Inicio/Salida como puntos de spawn aleatorios
+                        if isinstance(self.matriz[r][c], Camino) and \
+                           (r, c) != self.inicio and (r, c) != self.salida:
+                            self.valid_spawn.append((r, c))
+                
                 self._imprimir_estadisticas()
                 break
+            
             intentos += 1
         
         if intentos == max_intentos:
-            print(" Error: No se pudo generar un mapa con camino válido después de 20 intentos.")
-            # Solución de emergencia: asegurar Camino de inicio a fin
-            self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-            self.matriz[self.salida[0]][self.salida[1]] = Camino()
-            
-        self.agregar_terrenos_especiales()
-        self.actualizar_valid_spawn()
-
-    def _imprimir_estadisticas(self):
-        """Calcula e imprime la proporción de cada tipo de terreno."""
-        conteo = {'muro': 0, 'camino': 0, 'liana': 0, 'tunel': 0, 'trampa': 0}
-        total = self.filas * self.cols
-        for fila in range(self.filas):
-            for col in range(self.cols):
-                conteo[self.matriz[fila][col].tipo] += 1
-        
-        print(f"Estadísticas del mapa:")
-        for tipo, count in conteo.items():
-            print(f"  {tipo.capitalize()}: {count} ({count/total:.1%})")
-
-
+            print(" Advertencia: No se pudo generar un mapa con camino garantizado.")
 
     def generar_laberinto_recursivo(self):
-        """Genera un laberinto usando el algoritmo de división recursiva."""
-        # Inicializa la matriz como todo Muro
+        """Inicializa la matriz a Muros y crea el laberinto usando DFS."""
         self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
+        self._dfs_laberinto(1, 1)
+        self.matriz[self.inicio[0]][self.inicio[1]] = Camino() # Asegurar inicio como camino
+        self.matriz[self.salida[0]][self.salida[1]] = Camino() # Asegurar salida como camino
+
+    def _dfs_laberinto(self, r, c):
+        """Algoritmo DFS para generar el laberinto."""
+        self.matriz[r][c] = Camino()
+        direcciones = [(-2, 0), (2, 0), (0, -2), (0, 2)]
+        random.shuffle(direcciones)
         
-        # Marcar todo el interior como Camino (para empezar)
+        for dr, dc in direcciones:
+            nr, nc = r + dr, c + dc
+            if 0 < nr < self.filas - 1 and 0 < nc < self.cols - 1 and isinstance(self.matriz[nr][nc], Muro):
+                # Derribar el muro intermedio
+                self.matriz[r + dr // 2][c + dc // 2] = Camino()
+                self._dfs_laberinto(nr, nc)
+
+    def _generar_atajos(self, num_lianas, num_tuneles):
+        """Reemplaza muros aleatorios por Lianas (Cazador) y Túneles (Presa) en zonas seguras."""
+        muros_candidatos = []
         for r in range(1, self.filas - 1):
             for c in range(1, self.cols - 1):
-                self.matriz[r][c] = Camino()
-                
-        # Llamada inicial: el rectángulo a dividir va de (1, 1) a (filas-2, cols-2)
-        self._dividir((1, 1, self.filas - 2, self.cols - 2))
+                if isinstance(self.matriz[r][c], Muro):
+                    muros_candidatos.append((r, c))
         
-        # Asegurar inicio y fin como Camino
-        self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-        self.matriz[self.salida[0]][self.salida[1]] = Camino()
+        random.shuffle(muros_candidatos)
         
-    def _dividir(self, rect):
-        """
-        Implementación recursiva del algoritmo de división para laberintos.
-        Crea un muro, dejando una sola apertura para asegurar la conectividad.
-        """
-        f1, c1, f2, c2 = rect
-        df = f2 - f1
-        dc = c2 - c1
-        
-        if df < 2 or dc < 2: return # Base case
-
-        # Elegir la orientación de la división (vertical u horizontal)
-        if df > dc:
-            orientacion = 'H' # Horizontal
-        elif dc > df:
-            orientacion = 'V' # Vertical
-        else:
-            orientacion = random.choice(['H', 'V'])
-            
-        if orientacion == 'H':
-            # División horizontal: Muro en fila IMPAR entre f1 y f2
-            f_muro = random.randrange(f1 + 1, f2, 2)
-            
-            # Dibujar muro
-            for c in range(c1, c2 + 1):
-                self.matriz[f_muro][c] = Muro()
-            
-            # Crear una sola abertura en una columna PAR
-            c_apertura = random.randrange(c1, c2 + 1, 2)
-            self.matriz[f_muro][c_apertura] = Camino()
-            
-            # Llamadas recursivas para arriba y abajo
-            self._dividir((f1, c1, f_muro - 1, c2))
-            self._dividir((f_muro + 1, c1, f2, c2))
-            
-        else: # orientacion == 'V'
-            # División vertical: Muro en columna IMPAR entre c1 y c2
-            c_muro = random.randrange(c1 + 1, c2, 2)
-            
-            # Dibujar muro
-            for r in range(f1, f2 + 1):
-                self.matriz[r][c_muro] = Muro()
-            
-            # Crear una sola abertura en una fila PAR
-            f_apertura = random.randrange(f1, f2 + 1, 2)
-            self.matriz[f_apertura][c_muro] = Camino()
-            
-            # Llamadas recursivas para izquierda y derecha
-            self._dividir((f1, c1, f2, c_muro - 1))
-            self._dividir((f1, c_muro + 1, f2, c2))    
-
-    def agregar_terrenos_especiales(self):
-        """Agrega Lianas y Túneles en caminos existentes, sin romper la conectividad."""
-        num_lianas = random.randint(3, 5)
-        num_tuneles = random.randint(3, 5)
-        
-        # Obtener todas las posiciones de Camino válidas (no inicio/salida)
-        camino_pos = []
-        for r in range(1, self.filas - 1):
-            for c in range(1, self.cols - 1):
-                if isinstance(self.matriz[r][c], Camino):
-                    if (r, c) != self.inicio and (r, c) != self.salida:
-                        camino_pos.append((r, c))
-        
-        random.shuffle(camino_pos)
-        
-        # 1. Agregar Lianas
-        lianas_colocadas = 0
-        for r, c in camino_pos:
-            if lianas_colocadas >= num_lianas: break
-            
-            # Intentar cambiar Camino a Liana
+        # 1. Colocar Lianas (para Cazadores)
+        temp_candidatos = muros_candidatos[:]
+        for i in range(min(num_lianas, len(temp_candidatos))):
+            r, c = temp_candidatos.pop(random.randrange(len(temp_candidatos)))
             self.matriz[r][c] = Liana()
-            
-            # Verificar si el camino de la Presa (rol cazador=False) sigue existiendo
-            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=False):
-                # El cambio es válido, la Presa aún puede escapar
-                lianas_colocadas += 1
-            else:
-                # El cambio rompió el camino de la Presa, revertir
-                self.matriz[r][c] = Camino()
         
-        # 2. Agregar Túneles
-        # Usar las posiciones restantes de Camino y las Lianas recién creadas
-        tunel_posibles = [(r, c) for r in range(self.filas) for c in range(self.cols) 
-                          if isinstance(self.matriz[r][c], Camino) or isinstance(self.matriz[r][c], Liana)]
-        
-        random.shuffle(tunel_posibles)
-        
-        tuneles_colocados = 0
-        for r, c in tunel_posibles:
-            if tuneles_colocados >= num_tuneles: break
-
-            # Guardar el terreno original por si hay que revertir
-            terreno_original = self.matriz[r][c]
-            
-            # Intentar cambiar a Túnel
+        # 2. Colocar Túneles (para Presas/Jugador)
+        muros_restantes = [pos for pos in muros_candidatos if isinstance(self.matriz[pos[0]][pos[1]], Muro)]
+        for i in range(min(num_tuneles, len(muros_restantes))):
+            r, c = muros_restantes.pop(random.randrange(len(muros_restantes)))
             self.matriz[r][c] = Tunel()
-            
-            # Verificar si el camino del Cazador (rol cazador=True) sigue existiendo
-            # NOTA: En modo Escapa, el jugador es Presa y la IA es Cazador. 
-            # El Cazador (IA) necesita tener camino para empezar.
-            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=True):
-                # El cambio es válido, el Cazador aún puede perseguir
-                tuneles_colocados += 1
+
+    def _imprimir_estadisticas(self):
+        """Imprime la cantidad de cada tipo de terreno."""
+        tipos = {}
+        for row in self.matriz:
+            for cell in row:
+                tipo = cell.tipo
+                tipos[tipo] = tipos.get(tipo, 0) + 1
+        # print("Estadísticas del mapa:", tipos) # Descomentar para debug
+
+    def es_celda_accesible(self, fila, col, es_jugador):
+        """Verifica si una celda es accesible por el rol dado, sin verificar límites."""
+        if 0 <= fila < self.filas and 0 <= col < self.cols:
+            terreno = self.matriz[fila][col]
+            if es_jugador:
+                return terreno.es_accesible_jugador()
             else:
-                # El cambio rompió el camino del Cazador, revertir
-                self.matriz[r][c] = terreno_original
-    def actualizar_valid_spawn(self):
-        """Identifica posiciones válidas para reaparición de entidades (que no sean muros ni cerca del inicio/salida)."""
-        self.valid_spawn.clear()
-        for r in range(1, self.filas - 1):
-            for c in range(1, self.cols - 1):
-                terreno = self.matriz[r][c]
-                # Posición válida si no es muro y no está en el área de inicio/salida
-                if not isinstance(terreno, Muro) and \
-                   abs(r - self.inicio[0]) + abs(c - self.inicio[1]) > 5 and \
-                   abs(r - self.salida[0]) + abs(c - self.salida[1]) > 5:
-                    self.valid_spawn.append((r, c))
-
-    def hay_camino(self, start, goal, es_rol_cazador=False):
-        """BFS para verificar si hay camino válido para el rol específico (Presa o Cazador)"""
-        fila_start, col_start = start
-        fila_goal, col_goal = goal
-        # ... (Mantener la implementación de hay_camino con la lógica de es_rol_cazador)
-        visitado = [[False] * self.cols for _ in range(self.filas)]
-        queue = deque([(fila_start, col_start)])
-        visitado[fila_start][col_start] = True
-        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-        while queue:
-            fila, col = queue.popleft()
-            if (fila, col) == (fila_goal, col_goal):
-                return True
-            
-            for df, dc in direcciones:
-                nf, nc = fila + df, col + dc
-                if 0 <= nf < self.filas and 0 <= nc < self.cols and not visitado[nf][nc]:
-                    terreno = self.matriz[nf][nc]
-                    
-                    if es_rol_cazador:
-                        # Si es Cazador, usa la regla de 'enemigo' (puede usar Lianas)
-                        accesible = terreno.es_accesible_enemigo() 
-                    else:
-                        # Si es Presa, usa la regla de 'jugador' (puede usar Túneles)
-                        accesible = terreno.es_accesible_jugador() 
-
-                    if accesible:
-                        visitado[nf][nc] = True
-                        queue.append((nf, nc))
+                return terreno.es_accesible_enemigo()
         return False
-    
-    def encontrar_camino(self, start_fila, start_col, goal_fila, goal_col, es_rol_cazador=True):
-        """BFS para encontrar path más corto considerando el rol (Presa o Cazador)"""
-        # ... (Mantener la implementación de encontrar_camino con la lógica de es_rol_cazador)
-        visitado = [[False] * self.cols for _ in range(self.filas)]
-        # Almacena (fila, col, path_lista)
-        queue = deque([(start_fila, start_col, [])])
-        visitado[start_fila][start_col] = True
-        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
+    def hay_camino(self, inicio, fin, es_jugador): 
+        """Verifica si existe un camino entre inicio y fin, considerando el rol (jugador o enemigo)."""
+        # es_rol_cazador=True para Cazador (accede Lianas), False para Presa (accede Túneles)
+        es_rol_cazador = not es_jugador
+        path = self.encontrar_camino(inicio[0], inicio[1], fin[0], fin[1], es_rol_cazador)
+        return bool(path) # Retorna True si la lista no está vacía
+
+    def encontrar_camino(self, inicio_fila, inicio_col, fin_fila, fin_col, es_rol_cazador):
+        """
+        Encuentra el camino más corto (BFS).
+        - es_rol_cazador=True: Accede a Lianas.
+        - es_rol_cazador=False: Accede a Túneles (Presa).
+        """
+        queue = deque([(inicio_fila, inicio_col, [(inicio_fila, inicio_col)])])
+        visitado = set([(inicio_fila, inicio_col)])
+        
+        direcciones = [(-1, 0), (1, 0), (0, -1), (0, 1)] 
+        
         while queue:
             fila, col, path = queue.popleft()
-            current = (fila, col)
-            path = path + [current]
             
-            if current == (goal_fila, goal_col):
+            if fila == fin_fila and col == fin_col:
                 return path
             
             for df, dc in direcciones:
                 nf, nc = fila + df, col + dc
-                if 0 <= nf < self.filas and 0 <= nc < self.cols and not visitado[nf][nc]:
+                
+                if 0 <= nf < self.filas and 0 <= nc < self.cols and (nf, nc) not in visitado:
                     terreno = self.matriz[nf][nc]
                     
+                    # Lógica de acceso basada en el rol
                     if es_rol_cazador:
-                        accesible = terreno.es_accesible_enemigo()
+                        accesible = terreno.es_accesible_enemigo() 
                     else:
-                        accesible = terreno.es_accesible_jugador()
+                        accesible = terreno.es_accesible_jugador() # Presa
                         
                     if accesible:
-                        visitado[nf][nc] = True
-                        queue.append((nf, nc, path))
+                        visitado.add((nf, nc))
+                        new_path = path + [(nf, nc)]
+                        queue.append((nf, nc, new_path))
+        
         return []
-    
+
     def dibujar(self, screen):
         """Dibuja el mapa en la pantalla, considerando HUD superior"""
         for fila in range(self.filas):
@@ -267,4 +164,5 @@ class Mapa:
         # Dibujar salida con color especial (por ejemplo, blanco)
         salida_x = self.salida[1] * TAM_CELDA
         salida_y = self.salida[0] * TAM_CELDA + HUD_HEIGHT
-        pygame.draw.rect(screen, (255, 255, 255), (salida_x, salida_y, TAM_CELDA, TAM_CELDA), 3)
+        salida_rect = pygame.Rect(salida_x, salida_y, TAM_CELDA, TAM_CELDA)
+        pygame.draw.rect(screen, COLORES_JUEGO['salida'], salida_rect)
