@@ -154,3 +154,67 @@ class Juego:
         self.enemigos.append(nuevo_enemigo)
         enemigo_data['enemigo'] = nuevo_enemigo
         enemigo_data['timer_activo'] = False
+    
+    def _manejar_eventos(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            
+            # Eventos de reaparición de enemigos
+            if event.type >= pygame.USEREVENT + 10 and event.type < pygame.USEREVENT + 10 + self.num_enemigos_total:
+                enemigo_id = event.type - (pygame.USEREVENT + 10)
+                self._reaparecer_enemigo(enemigo_id)
+                pygame.time.set_timer(event.type, 0)
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    if not self.pausado and not self.game_over:
+                        self.tiempo_pausado = pygame.time.get_ticks()
+                        self.pausado = True
+                        self.opcion_seleccionada = 0
+                    elif self.pausado:
+                        pausa_duracion = pygame.time.get_ticks() - self.tiempo_pausado
+                        self.tiempo_inicio += pausa_duracion
+                        self.pausado = False
+                    elif self.game_over:
+                        self.running = False
+                        self.volver_menu = True
+                
+                if self.pausado:
+                    if event.key == pygame.K_UP:
+                        self.opcion_seleccionada = (self.opcion_seleccionada - 1) % len(self.opciones_pausa)
+                    elif event.key == pygame.K_DOWN:
+                        self.opcion_seleccionada = (self.opcion_seleccionada + 1) % len(self.opciones_pausa)
+                    elif event.key == pygame.K_RETURN:
+                        self._ejecutar_opcion_pausa()
+                
+                if not self.pausado and not self.game_over:
+                    self._manejar_movimiento(event.key)
+                    if event.key == pygame.K_SPACE and self.modo == 'escapa':
+                        self._colocar_trampa()
+    
+    def _ejecutar_opcion_pausa(self):
+        """Ejecuta la opción seleccionada en el menú de pausa."""
+        if self.opcion_seleccionada == 0:  # Continuar
+            pausa_duracion = pygame.time.get_ticks() - self.tiempo_pausado
+            self.tiempo_inicio += pausa_duracion
+            self.pausado = False
+        elif self.opcion_seleccionada == 1:  # Reiniciar
+            self.__init__(self.modo, self.dificultad, self.nombre_jugador, self.screen, self.puntuacion)
+        elif self.opcion_seleccionada == 2:  # Salir al menú
+            self.volver_menu = True
+            self.running = False
+    
+
+    def _manejar_movimiento(self, key):
+        direcciones = {pygame.K_UP: (-1, 0), pygame.K_DOWN: (1, 0), pygame.K_LEFT: (0, -1), pygame.K_RIGHT: (0, 1)}
+        
+        keys = pygame.key.get_pressed()
+        corriendo = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        
+        df, dc = direcciones.get(key, (0, 0))
+        if df or dc:
+            if corriendo:
+                self.jugador.correr(self.mapa, df, dc, self.modo)
+            else:
+                self.jugador.mover(self.mapa, df, dc, self.modo)
