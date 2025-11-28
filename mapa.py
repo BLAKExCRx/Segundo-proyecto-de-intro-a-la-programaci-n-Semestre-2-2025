@@ -6,49 +6,54 @@ from config import FILAS_MAPA, COLUMNAS_MAPA, TAM_CELDA, COLORES_JUEGO, ANCHO, A
 from entidades import Camino, Liana, Tunel, Muro
 #prueba de generacion de mapa primera parte , probablemente falle terriblemente XD
 class Mapa:
-    def __init__(self, modo):  # <-- AGREGAR PARÁMETRO modo
+    def __init__(self, modo):
         self.modo = modo
         self.filas = FILAS_MAPA
         self.cols = COLUMNAS_MAPA
         self.matriz = []
-        self.inicio = (1, 1)  # Esquina superior izquierda
-        self.salida = (self.filas - 2, self.cols - 2)  # Esquina opuesta
+        self.inicio = (1, 1)
+        self.salida = (self.filas - 2, self.cols - 2)
         
-        # Generar hasta asegurar que la salida es alcanzable
+        # Lista de posibles puntos de aparición de entidades
+        self.valid_spawn = [] 
+        
         self._generar_mapa()
 
     def _generar_mapa(self):
-        """Genera el mapa asegurando camino válido"""
+        """Genera el mapa asegurando camino válido para el rol de Presa"""
         intentos = 0
         max_intentos = 20
         
         while intentos < max_intentos:
             self.generar_laberinto_recursivo()
             
-            # Validar camino para jugador
-            if self.hay_camino(self.inicio, self.salida, es_jugador=True):
+            #  Validar camino para el rol de Presa (es_rol_cazador=False, usa Túneles)
+            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=False):
                 print(f"✓ Mapa válido generado en intento {intentos + 1}")
                 self._imprimir_estadisticas()
                 break
             intentos += 1
-            print(f"✗ Intento {intentos} falló, regenerando...")
         
-        if intentos >= max_intentos:
-            print(" Advertencia: Generando mapa de emergencia")
-            self._generar_mapa_emergencia()
-        
-        # Añadir terrenos especiales solo después de asegurar el camino
+        if intentos == max_intentos:
+            print(" Error: No se pudo generar un mapa con camino válido después de 20 intentos.")
+            # Solución de emergencia: asegurar Camino de inicio a fin
+            self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
+            self.matriz[self.salida[0]][self.salida[1]] = Camino()
+            
         self.agregar_terrenos_especiales()
+        self.actualizar_valid_spawn()
 
     def _imprimir_estadisticas(self):
-        """Imprime estadísticas del mapa generado"""
-        total_celdas = self.filas * self.cols
-        caminos = sum(1 for fila in self.matriz for celda in fila if isinstance(celda, Camino))
-        muros = sum(1 for fila in self.matriz for celda in fila if isinstance(celda, Muro))
+        """Calcula e imprime la proporción de cada tipo de terreno."""
+        conteo = {'muro': 0, 'camino': 0, 'liana': 0, 'tunel': 0, 'trampa': 0}
+        total = self.filas * self.cols
+        for fila in range(self.filas):
+            for col in range(self.cols):
+                conteo[self.matriz[fila][col].tipo] += 1
         
-        print(f"  Celdas totales: {total_celdas}")
-        print(f"  Caminos: {caminos} ({caminos*100//total_celdas}%)")
-        print(f"  Muros: {muros} ({muros*100//total_celdas}%)")
+        print(f"Estadísticas del mapa:")
+        for tipo, count in conteo.items():
+            print(f"  {tipo.capitalize()}: {count} ({count/total:.1%})")
 
     def _crear_camino_emergencia(self):
         """Crea un camino directo de inicio a salida si está bloqueado"""
@@ -89,116 +94,81 @@ class Mapa:
         self.matriz[self.salida[0]][self.salida[1]] = Camino()
 
     def generar_laberinto_recursivo(self):
-        """Genera laberinto usando algoritmo de Prim modificado - garantiza conectividad completa"""
-        # Llenar todo de muros
+        """Genera un laberinto usando el algoritmo de división recursiva."""
+        # Inicializa la matriz como todo Muro
         self.matriz = [[Muro() for _ in range(self.cols)] for _ in range(self.filas)]
         
-        # Empezar desde la posición de inicio
-        inicio_fila, inicio_col = 1, 1
-        self.matriz[inicio_fila][inicio_col] = Camino()
-        
-        # Lista de muros frontera (muros adyacentes a celdas visitadas)
-        muros = []
-        
-        # Agregar muros adyacentes al inicio
-        def agregar_muros(fila, col):
-            for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nf, nc = fila + df, col + dc
-                if 0 < nf < self.filas - 1 and 0 < nc < self.cols - 1:
-                    if isinstance(self.matriz[nf][nc], Muro):
-                        if (nf, nc) not in muros:
-                            muros.append((nf, nc))
-        
-        agregar_muros(inicio_fila, inicio_col)
-        
-        # Mientras haya muros en la frontera
-        while muros:
-            # Elegir un muro aleatorio
-            muro_actual = random.choice(muros)
-            muros.remove(muro_actual)
-            muro_fila, muro_col = muro_actual
-            
-            # Contar vecinos que son camino
-            vecinos_camino = []
-            for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nf, nc = muro_fila + df, muro_col + dc
-                if 0 <= nf < self.filas and 0 <= nc < self.cols:
-                    if isinstance(self.matriz[nf][nc], Camino):
-                        vecinos_camino.append((nf, nc))
-            
-            # Si solo tiene un vecino camino, convertir el muro en camino
-            if len(vecinos_camino) == 1:
-                self.matriz[muro_fila][muro_col] = Camino()
-                agregar_muros(muro_fila, muro_col)
-        
-        # Crear algunos ciclos adicionales (20% de muros aleatorios se convierten en camino)
-        num_ciclos = int((self.filas * self.cols) * 0.05)
-        for _ in range(num_ciclos):
-            fila = random.randint(1, self.filas - 2)
-            col = random.randint(1, self.cols - 2)
-            if isinstance(self.matriz[fila][col], Muro):
-                # Verificar que tiene al menos 2 vecinos camino
-                vecinos_camino = 0
-                for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nf, nc = fila + df, col + dc
-                    if 0 <= nf < self.filas and 0 <= nc < self.cols:
-                        if isinstance(self.matriz[nf][nc], Camino):
-                            vecinos_camino += 1
+        # Marcar todo el interior como Camino (para empezar)
+        for r in range(1, self.filas - 1):
+            for c in range(1, self.cols - 1):
+                self.matriz[r][c] = Camino()
                 
-                if vecinos_camino >= 2:
-                    self.matriz[fila][col] = Camino()
+        # Llamada inicial: el rectángulo a dividir va de (1, 1) a (filas-2, cols-2)
+        self._dividir((1, 1, self.filas - 2, self.cols - 2))
         
-        # Asegurar que inicio y salida son Camino
+        # Asegurar inicio y fin como Camino
         self.matriz[self.inicio[0]][self.inicio[1]] = Camino()
-        self.matriz[self.salida[0]][self.salida[1]] = Camino()
+        self.matriz[self.salida[0]][self.salida[1]] = Camino())
         
-        # Asegurar camino directo a la salida si está bloqueada
-        if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
-            self._crear_camino_emergencia()
+        
 
     def agregar_terrenos_especiales(self):
-        """Añade lianas y túneles entre muros sin bloquear el camino principal"""
-        num_especiales = random.randint(3, 8)
-        agregados = 0
-        intentos = 0
-        max_intentos = 100
+        """Agrega Lianas y Túneles en caminos existentes, sin romper la conectividad."""
+        num_lianas = random.randint(3, 5)
+        num_tuneles = random.randint(3, 5)
         
-        while agregados < num_especiales and intentos < max_intentos:
-            fila = random.randint(1, self.filas - 2)
-            col = random.randint(1, self.cols - 2)
+        # Obtener todas las posiciones de Camino válidas (no inicio/salida)
+        camino_pos = []
+        for r in range(1, self.filas - 1):
+            for c in range(1, self.cols - 1):
+                if isinstance(self.matriz[r][c], Camino):
+                    if (r, c) != self.inicio and (r, c) != self.salida:
+                        camino_pos.append((r, c))
+        
+        random.shuffle(camino_pos)
+        
+        # 1. Agregar Lianas
+        lianas_colocadas = 0
+        for r, c in camino_pos:
+            if lianas_colocadas >= num_lianas: break
             
-            # Solo reemplazar muros entre caminos
-            if isinstance(self.matriz[fila][col], Muro):
-                # Verificar que hay caminos adyacentes (es un muro "entre" caminos)
-                adyacentes = [
-                    (fila-1, col), (fila+1, col), 
-                    (fila, col-1), (fila, col+1)
-                ]
-                
-                num_caminos_ady = sum(
-                    1 for f, c in adyacentes 
-                    if 0 <= f < self.filas and 0 <= c < self.cols 
-                    and isinstance(self.matriz[f][c], Camino)
-                )
-                
-                # Si tiene al menos 2 caminos adyacentes, es buen candidato
-                if num_caminos_ady >= 2:
-                    # Elegir Liana o Túnel
-                    tipo = random.choice([Liana, Tunel])
-                    terreno_original = self.matriz[fila][col]
-                    self.matriz[fila][col] = tipo()
-                    
-                    # Verificar que no rompe el camino del jugador
-                    if tipo == Liana:
-                        if not self.hay_camino(self.inicio, self.salida, es_jugador=True):
-                            # Revertir si bloquea
-                            self.matriz[fila][col] = terreno_original
-                        else:
-                            agregados += 1
-                    else:
-                        agregados += 1
+            # Intentar cambiar Camino a Liana
+            self.matriz[r][c] = Liana()
             
-            intentos += 1
+            # Verificar si el camino de la Presa (rol cazador=False) sigue existiendo
+            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=False):
+                # El cambio es válido, la Presa aún puede escapar
+                lianas_colocadas += 1
+            else:
+                # El cambio rompió el camino de la Presa, revertir
+                self.matriz[r][c] = Camino()
+        
+        # 2. Agregar Túneles
+        # Usar las posiciones restantes de Camino y las Lianas recién creadas
+        tunel_posibles = [(r, c) for r in range(self.filas) for c in range(self.cols) 
+                          if isinstance(self.matriz[r][c], Camino) or isinstance(self.matriz[r][c], Liana)]
+        
+        random.shuffle(tunel_posibles)
+        
+        tuneles_colocados = 0
+        for r, c in tunel_posibles:
+            if tuneles_colocados >= num_tuneles: break
+
+            # Guardar el terreno original por si hay que revertir
+            terreno_original = self.matriz[r][c]
+            
+            # Intentar cambiar a Túnel
+            self.matriz[r][c] = Tunel()
+            
+            # Verificar si el camino del Cazador (rol cazador=True) sigue existiendo
+            # NOTA: En modo Escapa, el jugador es Presa y la IA es Cazador. 
+            # El Cazador (IA) necesita tener camino para empezar.
+            if self.hay_camino(self.inicio, self.salida, es_rol_cazador=True):
+                # El cambio es válido, el Cazador aún puede perseguir
+                tuneles_colocados += 1
+            else:
+                # El cambio rompió el camino del Cazador, revertir
+                self.matriz[r][c] = terreno_original
 
 
     def hay_camino(self, start, goal, es_jugador=True):
