@@ -218,3 +218,49 @@ class Juego:
                 self.jugador.correr(self.mapa, df, dc, self.modo)
             else:
                 self.jugador.mover(self.mapa, df, dc, self.modo)
+
+
+    def _colocar_trampa(self):
+        """Coloca una trampa si hay disponibles."""
+        # Verificar que haya trampas disponibles
+        if self.trampas_disponibles <= 0:
+            print("No hay trampas disponibles")
+            return
+        
+        # Verificar límite de trampas activas
+        if len(self.trampas_activas) >= self.max_trampas_activas:
+            print(f"Límite de {self.max_trampas_activas} trampas activas alcanzado.")
+            return
+
+        posicion = (self.jugador.fila, self.jugador.col)
+        
+        # Verificar que la posición actual sea válida
+        terreno_actual = self.mapa.matriz[posicion[0]][posicion[1]]
+        if not isinstance(terreno_actual, Camino) and not isinstance(terreno_actual, Tunel):
+            return
+        
+        # Verificar que no bloquea el camino único
+        if not self._bloquea_camino_unico(posicion):
+            trampa = Trampa()
+            self.mapa.matriz[self.jugador.fila][self.jugador.col] = trampa
+            self.trampas_activas.append(posicion)
+            self.trampas_disponibles -= 1  # Consumir una trampa
+            print(f"Trampa colocada. Disponibles: {self.trampas_disponibles}, Activas: {len(self.trampas_activas)}")
+        else:
+            print("No se puede colocar trampa aquí - bloquea el camino")
+
+    def _bloquea_camino_unico(self, posicion):
+        """Verifica si colocar trampa en esta posición bloquea el único camino."""
+        fila, col = posicion
+        terreno_original = self.mapa.matriz[fila][col]
+        
+        self.mapa.matriz[fila][col] = Trampa()
+        
+        try:
+            hay_camino = self.mapa.hay_camino(self.mapa.inicio, self.salida, es_jugador=True)
+        except AttributeError:
+            hay_camino = True
+             
+        self.mapa.matriz[fila][col] = terreno_original
+        
+        return not hay_camino
