@@ -515,8 +515,58 @@ class Juego:
             opcion_text = self.font_menu_pausa.render(opcion, True, color)
             self.screen.blit(opcion_text, (menu_x + (menu_width - opcion_text.get_width()) // 2, menu_y + 80 + i * 40))
     def _dibujar_hud(self):
-        """dibuja el HUD actualizado"""
-        pass
+        """Dibuja el HUD actualizado."""
+        hud_rect = pygame.Rect(0, 0, ANCHO, HUD_HEIGHT)
+        pygame.draw.rect(self.screen, COLORES['bg_panel'], hud_rect)
+        
+        x_offset = 10
+        spacing = 150
+        
+        # Energía
+        energia_porcentaje = int((self.jugador.energia / self.jugador.max_energia) * 100)
+        energia_text = self.font_hud.render(f"Energia: {energia_porcentaje}%", True, COLORES['text_white'])
+        self.screen.blit(energia_text, (x_offset, 18))
+        x_offset += spacing + 20
+        
+        # Trampas (solo modo escapa)
+        if self.modo == 'escapa':
+            trampas_text = self.font_hud.render(f"Trampas: {self.trampas_disponibles}/3", True, COLORES['text_white'])
+            self.screen.blit(trampas_text, (x_offset, 18))
+            x_offset += spacing
+        else:
+            x_offset += 50
+        
+        # Tiempo (siempre suma ahora)
+        tiempo_seg = self.tiempo_actual // 1000
+        minutos = tiempo_seg // 60
+        segundos = tiempo_seg % 60
+        tiempo_text = self.font_hud.render(f"Tiempo: {minutos:02d}:{segundos:02d}", True, COLORES['text_white'])
+        self.screen.blit(tiempo_text, (x_offset, 18))
+        x_offset += spacing + 20
+        
+        # Puntaje
+        puntaje_text = self.font_hud.render(f"Puntaje: {self.puntaje}", True, COLORES['text_white'])
+        self.screen.blit(puntaje_text, (x_offset, 18))
+        x_offset += spacing + 30
+        
+        # ESC=Menu
+        esc_text = self.font_hud.render("ESC=Menu", True, COLORES['text_yellow'])
+        self.screen.blit(esc_text, (x_offset, 18))
+        
+        # Jugador
+        jugador_text = self.font_hud.render(f"Jugador: {self.nombre_jugador}", True, COLORES['text_white'])
+        self.screen.blit(jugador_text, (ANCHO - 200, 18))
+
     def run(self):
-        """loop principal del juego"""
-        pass
+        """Loop principal del juego."""
+        while self.running:
+            dt = self.clock.tick(FPS)
+            self._manejar_eventos()
+
+            if not self.pausado and not self.game_over:
+                self._actualizar(dt)
+            
+            self._dibujar()
+            pygame.display.flip()
+            
+        return self.volver_menu
