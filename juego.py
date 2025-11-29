@@ -324,3 +324,93 @@ class Juego:
                     self.trampas_disponibles += 1
                     print(f"Trampa recargada. Disponibles: {self.trampas_disponibles}")
                 self.trampa_recarga_timer = 0
+
+    def _terminar_juego(self, mensaje):
+        """Termina el juego mostrando un mensaje."""
+        print(f"Juego terminado: {mensaje}")
+        self.game_over = True
+        self.mensaje_game_over = mensaje
+        
+        # Guardar puntuación solo si:
+        # 1. En modo escapa: Solo si escapó exitosamente (no si fue atrapado)
+        # 2. En modo cazador: Siempre guardar
+        if self.puntaje > 0:
+            if self.modo == 'escapa':
+                # Solo guardar si NO fue atrapado
+                if mensaje != "¡ATRAPADO!":
+                    self.puntuacion.agregar(self.modo, self.nombre_jugador, self.puntaje)
+            else:
+                # En modo cazador siempre guardar
+                self.puntuacion.agregar(self.modo, self.nombre_jugador, self.puntaje)
+
+    def _mover_enemigos(self):
+        """Maneja la IA de los enemigos."""
+        enemigos_activos = [data['enemigo'] for data in self.enemigos_data if data['enemigo']]
+
+        for enemigo in enemigos_activos[:]: 
+            path = []
+            
+            if self.modo == 'escapa':
+                path = self.mapa.encontrar_camino(
+                    enemigo.fila, enemigo.col, 
+                    self.jugador.fila, self.jugador.col, 
+                    es_rol_cazador=True
+                )
+            else:
+                distancia = self._distancia(enemigo, self.jugador)
+                
+                if distancia <= 4: 
+                    max_dist = -1
+                    best_move = (0, 0)
+                    for df, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nf, nc = enemigo.fila + df, enemigo.col + dc
+                        if self.mapa.es_celda_accesible(nf, nc, es_jugador=True):
+                            temp_dist = self._distancia(self.jugador, Enemigo(nf, nc))
+                            if temp_dist > max_dist:
+                                max_dist = temp_dist
+                                best_move = (df, dc)
+                    
+                    if best_move != (0, 0):
+                        enemigo.mover(self.mapa, best_move[0], best_move[1], self.modo)
+                        continue
+                
+                path = self.mapa.encontrar_camino(
+                    enemigo.fila, enemigo.col, 
+                    self.salida[0], self.salida[1], 
+                    es_rol_cazador=False
+                )
+            
+            if path and len(path) > 1:
+                next_fila, next_col = path[1]
+                
+                ocupada_enemigo = any(
+                    e.fila == next_fila and e.col == next_col 
+                    for e in enemigos_activos if e != enemigo
+                )
+                
+                if ocupada_enemigo:
+                    continue
+                
+                enemigo.mover(self.mapa, next_fila - enemigo.fila, next_col - enemigo.col, self.modo)
+            
+            # Verificar trampa
+            if self.modo == 'escapa' and isinstance(self.mapa.matriz[enemigo.fila][enemigo.col], Trampa):
+                print("¡Cazador atrapado en una trampa!")
+                self.puntaje += 50  # Bonus por atrapar
+                
+                trampa_pos = (enemigo.fila, enemigo.col)
+                
+                self.mapa.matriz[enemigo.fila][enemigo.col] = Camino() 
+                if trampa_pos in self.trampas_activas:
+                    self.trampas_activas.remove(trampa_pos)
+                
+                if enemigo in self.enemigos:
+                    self.enemigos.remove(enemigo)
+                
+                enemigo_data = next((data for data in self.enemigos_data if data.get('enemigo') == enemigo), None)
+                if enemigo_data:
+                    enemigo_data['enemigo'] = None
+                    self._programar_reaparicion_enemigo(enemigo_data['id'])
+
+    def _distancia(self, e1, e2):
+        return abs(e1.fila - e2.fila) + abs(e1.col - e2.col)
