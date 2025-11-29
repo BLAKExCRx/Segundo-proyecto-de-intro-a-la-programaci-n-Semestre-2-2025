@@ -467,3 +467,56 @@ class Juego:
         
         if self.game_over:
             self._dibujar_game_over()
+
+
+    def _dibujar_game_over(self):
+        """Dibuja la pantalla de game over."""
+        overlay = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        game_over_text = self.font_game_over.render(self.mensaje_game_over, True, COLORES['text_yellow'])
+        game_over_rect = game_over_text.get_rect(center=(ANCHO // 2, ALTO // 2 - 50))
+        self.screen.blit(game_over_text, game_over_rect)
+
+        # Solo mostrar puntaje si NO fue atrapado en modo escapa
+        if not (self.modo == 'escapa' and self.mensaje_game_over == "¡ATRAPADO!"):
+            puntaje_text = self.font_pausa.render(f"Puntaje Final: {self.puntaje}", True, COLORES['text_white'])
+            puntaje_rect = puntaje_text.get_rect(center=(ANCHO // 2, ALTO // 2 + 20))
+            self.screen.blit(puntaje_text, puntaje_rect)
+            y_instruccion = ALTO // 2 + 80
+        else:
+            # Si fue atrapado, no mostrar puntaje
+            y_instruccion = ALTO // 2 + 20
+
+        instruccion_text = self.font_menu_pausa.render("Presiona ESC para volver al menú", True, COLORES['text_white'])
+        instruccion_rect = instruccion_text.get_rect(center=(ANCHO // 2, y_instruccion))
+        self.screen.blit(instruccion_text, instruccion_rect)
+
+    def _dibujar_menu_pausa(self):
+        """Dibuja el menú de pausa."""
+        overlay = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        self.screen.blit(overlay, (0, 0))
+
+        menu_width = 300
+        menu_height = 200
+        menu_x = (ANCHO - menu_width) // 2
+        menu_y = (ALTO - menu_height) // 2
+        menu_rect = pygame.Rect(menu_x, menu_y, menu_width, menu_height)
+        pygame.draw.rect(self.screen, COLORES['bg_panel'], menu_rect)
+        pygame.draw.rect(self.screen, COLORES['border'], menu_rect, 2)
+
+        titulo_text = self.font_pausa.render("PAUSA", True, COLORES['text_white'])
+        self.screen.blit(titulo_text, (menu_x + (menu_width - titulo_text.get_width()) // 2, menu_y + 20))
+
+        for i, opcion in enumerate(self.opciones_pausa):
+            color = COLORES['bg_button_selected'] if i == self.opcion_seleccionada else COLORES['text_white']
+            opcion_text = self.font_menu_pausa.render(opcion, True, color)
+            self.screen.blit(opcion_text, (menu_x + (menu_width - opcion_text.get_width()) // 2, menu_y + 80 + i * 40))
+    def _dibujar_hud(self):
+        """dibuja el HUD actualizado"""
+        pass
+    def run(self):
+        """loop principal del juego"""
+        pass
