@@ -29,32 +29,39 @@ class Juego:
         self.tiempo_actual = 0
         self.tiempo_pausado = 0
         
+        # Cargar sonidos
+        self._cargar_sonidos()
+        
         # Sistema de puntuación actualizado
         if self.modo == 'escapa':
-            self.puntaje = 3000  # Empieza con 3000 puntos
-            self.puntaje_resta_timer = 0  # Timer para restar puntos cada 2 segundos
-            self.puntaje_resta_delay = 2000  # 2 segundos en ms
+            self.puntaje = 3000
+            self.puntaje_resta_timer = 0
+            self.puntaje_resta_delay = 2000
             self.puntaje_resta_cantidad = self._get_puntaje_resta()
         else:
-            self.puntaje = 0  # Empieza con 0 puntos en modo cazador
+            self.puntaje = 0
         
         self.mapa = Mapa(self.modo)
         self.inicio = self.mapa.inicio
         self.salida = self.mapa.salida
         self.jugador = Jugador(self.inicio[0], self.inicio[1])
         
+        # Sistema de movimiento continuo con delay
+        self.movimiento_timer = 0
+        self.movimiento_delay = 150
+        self.ultima_direccion = None  # Almacenar última dirección presionada
+        
         # Sistema de enemigos
         self.num_enemigos_total = 3
         self.enemigos = []
         self.enemigos_data = []
-        self._inicializar_enemigos()
         
         # Sistema de trampas actualizado
         self.trampas_activas = []
         self.max_trampas_activas = 3
-        self.trampas_disponibles = 0  # Empieza con 0 trampas
-        self.trampa_recarga_timer = 0  # Timer para recargar trampas
-        self.trampa_recarga_delay = 5000  # 5 segundos en ms
+        self.trampas_disponibles = 0
+        self.trampa_recarga_timer = 0
+        self.trampa_recarga_delay = 5000
         
         # Timers de IA
         self.enemigo_timer = 0
@@ -63,6 +70,31 @@ class Juego:
         # Menú de pausa
         self.opciones_pausa = ['Continuar', 'Reiniciar', 'Salir al Menu']
         self.opcion_seleccionada = 0
+        
+        # Inicializar enemigos DESPUÉS de que todo esté configurado
+        print("Inicializando enemigos...")
+        self._inicializar_enemigos()
+        print(f"✓ {len(self.enemigos)} enemigos inicializados")
+
+    def _cargar_sonidos(self):
+        """Carga los efectos de sonido."""
+        self.sonidos = {}
+        try:
+            self.sonidos['matar'] = pygame.mixer.Sound('assets/matar.wav')
+            self.sonidos['pierde'] = pygame.mixer.Sound('assets/pierde.wav')
+            print("✓ Sonidos cargados correctamente")
+        except pygame.error as e:
+            print(f"⚠ Error al cargar sonidos: {e}")
+            self.sonidos['matar'] = None
+            self.sonidos['pierde'] = None
+    
+    def _reproducir_sonido(self, nombre):
+        """Reproduce un sonido si está disponible."""
+        if nombre in self.sonidos and self.sonidos[nombre]:
+            try:
+                self.sonidos[nombre].play()
+            except:
+                pass
 
     def _get_tiempo_limite(self):
         """Define el tiempo límite para ambos modos."""
@@ -109,6 +141,7 @@ class Juego:
             return random.choice(valid_pos)
             
         return 1, 1
+
     def _inicializar_enemigos(self):
         """Inicializa los 3 slots de enemigos."""
         self.enemigos.clear()
@@ -154,7 +187,7 @@ class Juego:
         self.enemigos.append(nuevo_enemigo)
         enemigo_data['enemigo'] = nuevo_enemigo
         enemigo_data['timer_activo'] = False
-    
+
     def _manejar_eventos(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -189,9 +222,31 @@ class Juego:
                         self._ejecutar_opcion_pausa()
                 
                 if not self.pausado and not self.game_over:
-                    self._manejar_movimiento(event.key)
+                    # Movimiento individual (pulsar y soltar)
+                    if event.key in [pygame.K_w, pygame.K_s, pygame.K_a, pygame.K_d]:
+                        self._manejar_movimiento_individual(event.key)
+                    
                     if event.key == pygame.K_SPACE and self.modo == 'escapa':
                         self._colocar_trampa()
+    
+    def _manejar_movimiento_individual(self, key):
+        """Maneja movimiento cuando se pulsa una tecla (sin mantener)."""
+        direcciones = {
+            pygame.K_w: (-1, 0),
+            pygame.K_s: (1, 0),
+            pygame.K_a: (0, -1),
+            pygame.K_d: (0, 1)
+        }
+        
+        keys = pygame.key.get_pressed()
+        corriendo = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        
+        df, dc = direcciones.get(key, (0, 0))
+        if df or dc:
+            if corriendo:
+                self.jugador.correr(self.mapa, df, dc, self.modo)
+            else:
+                self.jugador.mover(self.mapa, df, dc, self.modo)
     
     def _ejecutar_opcion_pausa(self):
         """Ejecuta la opción seleccionada en el menú de pausa."""
@@ -204,21 +259,42 @@ class Juego:
         elif self.opcion_seleccionada == 2:  # Salir al menú
             self.volver_menu = True
             self.running = False
-    
 
-    def _manejar_movimiento(self, key):
-        direcciones = {pygame.K_UP: (-1, 0), pygame.K_DOWN: (1, 0), pygame.K_LEFT: (0, -1), pygame.K_RIGHT: (0, 1)}
-        
+    def _procesar_movimiento_continuo(self, dt):
+        """Procesa el movimiento continuo cuando se mantiene presionada una tecla."""
         keys = pygame.key.get_pressed()
         corriendo = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         
-        df, dc = direcciones.get(key, (0, 0))
-        if df or dc:
-            if corriendo:
-                self.jugador.correr(self.mapa, df, dc, self.modo)
-            else:
-                self.jugador.mover(self.mapa, df, dc, self.modo)
-
+        # Actualizar timer
+        self.movimiento_timer += dt
+        
+        # Delay más rápido si está corriendo (consumiendo energía)
+        delay_actual = self.movimiento_delay // 2 if corriendo else self.movimiento_delay
+        
+        # Solo mover si ha pasado el delay
+        if self.movimiento_timer >= delay_actual:
+            direccion_actual = None
+            
+            # Determinar dirección presionada (WASD)
+            if keys[pygame.K_w]:
+                direccion_actual = (-1, 0)
+            elif keys[pygame.K_s]:
+                direccion_actual = (1, 0)
+            elif keys[pygame.K_a]:
+                direccion_actual = (0, -1)
+            elif keys[pygame.K_d]:
+                direccion_actual = (0, 1)
+            
+            # Si hay una dirección presionada, mover
+            if direccion_actual:
+                df, dc = direccion_actual
+                if corriendo:
+                    self.jugador.correr(self.mapa, df, dc, self.modo)
+                else:
+                    self.jugador.mover(self.mapa, df, dc, self.modo)
+                
+                # Resetear timer después de mover
+                self.movimiento_timer = 0
 
     def _colocar_trampa(self):
         """Coloca una trampa si hay disponibles."""
@@ -244,7 +320,7 @@ class Juego:
             trampa = Trampa()
             self.mapa.matriz[self.jugador.fila][self.jugador.col] = trampa
             self.trampas_activas.append(posicion)
-            self.trampas_disponibles -= 1  # Consumir una trampa
+            self.trampas_disponibles -= 1
             print(f"Trampa colocada. Disponibles: {self.trampas_disponibles}, Activas: {len(self.trampas_activas)}")
         else:
             print("No se puede colocar trampa aquí - bloquea el camino")
@@ -266,11 +342,16 @@ class Juego:
         return not hay_camino
 
     def _actualizar(self, dt):
+        """Actualiza la lógica del juego."""
         keys = pygame.key.get_pressed()
-        moviendo = any([keys[pygame.K_UP], keys[pygame.K_DOWN], keys[pygame.K_LEFT], keys[pygame.K_RIGHT]])
+        moviendo = any([keys[pygame.K_w], keys[pygame.K_s], keys[pygame.K_a], keys[pygame.K_d]])
         
         if not moviendo:
             self.jugador.actualizar_energia()
+            self.movimiento_timer = 0  # Resetear timer cuando no hay movimiento
+        else:
+            # Procesar movimiento continuo
+            self._procesar_movimiento_continuo(dt)
         
         self._actualizar_tiempo(dt)
         self._actualizar_puntaje(dt)
@@ -289,13 +370,10 @@ class Juego:
         tiempo_transcurrido = pygame.time.get_ticks() - self.tiempo_inicio
         
         if self.modo == 'escapa':
-            # En modo escapa, el tiempo suma normalmente
             self.tiempo_actual = tiempo_transcurrido
         else:
-            # En modo cazador, el tiempo resta desde el límite
             self.tiempo_actual = self.tiempo_limite - tiempo_transcurrido
             
-            # Verificar si se acabó el tiempo
             if self.tiempo_actual <= 0:
                 self.tiempo_actual = 0
                 self._terminar_juego("¡TIEMPO AGOTADO!")
@@ -303,17 +381,13 @@ class Juego:
     def _actualizar_puntaje(self, dt):
         """Actualiza el sistema de puntuación."""
         if self.modo == 'escapa':
-            # Restar puntos cada 2 segundos
             self.puntaje_resta_timer += dt
             if self.puntaje_resta_timer >= self.puntaje_resta_delay:
                 self.puntaje = max(0, self.puntaje - self.puntaje_resta_cantidad)
                 self.puntaje_resta_timer = 0
                 
-                # Si llega a 0 puntos, game over
                 if self.puntaje <= 0:
                     self._terminar_juego("¡PUNTOS AGOTADOS!")
-
-
 
     def _actualizar_recarga_trampas(self, dt):
         """Recarga trampas cada 5 segundos hasta un máximo de 3."""
@@ -331,16 +405,11 @@ class Juego:
         self.game_over = True
         self.mensaje_game_over = mensaje
         
-        # Guardar puntuación solo si:
-        # 1. En modo escapa: Solo si escapó exitosamente (no si fue atrapado)
-        # 2. En modo cazador: Siempre guardar
         if self.puntaje > 0:
             if self.modo == 'escapa':
-                # Solo guardar si NO fue atrapado
                 if mensaje != "¡ATRAPADO!":
                     self.puntuacion.agregar(self.modo, self.nombre_jugador, self.puntaje)
             else:
-                # En modo cazador siempre guardar
                 self.puntuacion.agregar(self.modo, self.nombre_jugador, self.puntaje)
 
     def _mover_enemigos(self):
@@ -393,10 +462,10 @@ class Juego:
                 
                 enemigo.mover(self.mapa, next_fila - enemigo.fila, next_col - enemigo.col, self.modo)
             
-            # Verificar trampa
             if self.modo == 'escapa' and isinstance(self.mapa.matriz[enemigo.fila][enemigo.col], Trampa):
                 print("¡Cazador atrapado en una trampa!")
-                self.puntaje += 50  # Bonus por atrapar
+                self._reproducir_sonido('matar')
+                self.puntaje += 50
                 
                 trampa_pos = (enemigo.fila, enemigo.col)
                 
@@ -420,9 +489,11 @@ class Juego:
         for enemigo in [data['enemigo'] for data in self.enemigos_data if data['enemigo']]:
             if (enemigo.fila, enemigo.col) == (self.jugador.fila, self.jugador.col):
                 if self.modo == 'escapa':
+                    self._reproducir_sonido('pierde')
                     self._terminar_juego("¡ATRAPADO!")
                 else:
                     print("¡Presa atrapada!")
+                    self._reproducir_sonido('matar')
                     self.puntaje += 20
                     self.enemigos.remove(enemigo)
                     
@@ -468,7 +539,6 @@ class Juego:
         if self.game_over:
             self._dibujar_game_over()
 
-
     def _dibujar_game_over(self):
         """Dibuja la pantalla de game over."""
         overlay = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
@@ -479,14 +549,12 @@ class Juego:
         game_over_rect = game_over_text.get_rect(center=(ANCHO // 2, ALTO // 2 - 50))
         self.screen.blit(game_over_text, game_over_rect)
 
-        # Solo mostrar puntaje si NO fue atrapado en modo escapa
         if not (self.modo == 'escapa' and self.mensaje_game_over == "¡ATRAPADO!"):
             puntaje_text = self.font_pausa.render(f"Puntaje Final: {self.puntaje}", True, COLORES['text_white'])
             puntaje_rect = puntaje_text.get_rect(center=(ANCHO // 2, ALTO // 2 + 20))
             self.screen.blit(puntaje_text, puntaje_rect)
             y_instruccion = ALTO // 2 + 80
         else:
-            # Si fue atrapado, no mostrar puntaje
             y_instruccion = ALTO // 2 + 20
 
         instruccion_text = self.font_menu_pausa.render("Presiona ESC para volver al menú", True, COLORES['text_white'])
@@ -514,21 +582,49 @@ class Juego:
             color = COLORES['bg_button_selected'] if i == self.opcion_seleccionada else COLORES['text_white']
             opcion_text = self.font_menu_pausa.render(opcion, True, color)
             self.screen.blit(opcion_text, (menu_x + (menu_width - opcion_text.get_width()) // 2, menu_y + 80 + i * 40))
+
     def _dibujar_hud(self):
-        """Dibuja el HUD actualizado."""
+        """Dibuja el HUD actualizado con barra de energía visual."""
         hud_rect = pygame.Rect(0, 0, ANCHO, HUD_HEIGHT)
         pygame.draw.rect(self.screen, COLORES['bg_panel'], hud_rect)
         
         x_offset = 10
         spacing = 150
         
-        # Energía
-        energia_porcentaje = int((self.jugador.energia / self.jugador.max_energia) * 100)
-        energia_text = self.font_hud.render(f"Energia: {energia_porcentaje}%", True, COLORES['text_white'])
-        self.screen.blit(energia_text, (x_offset, 18))
-        x_offset += spacing + 20
+        # Barra de energía visual
+        energia_porcentaje = self.jugador.energia / self.jugador.max_energia
         
-        # Trampas (solo modo escapa)
+        # Label de energía
+        energia_label = self.font_hud.render("Energia:", True, COLORES['text_white'])
+        self.screen.blit(energia_label, (x_offset, 18))
+        
+        # Barra de energía
+        barra_x = x_offset + 80
+        barra_y = 20
+        barra_ancho = 100
+        barra_alto = 15
+        
+        # Borde de la barra
+        pygame.draw.rect(self.screen, (255, 255, 255), 
+                        (barra_x, barra_y, barra_ancho, barra_alto), 2)
+        
+        # Relleno de la barra con gradiente de color según energía
+        if energia_porcentaje > 0:
+            ancho_actual = int(barra_ancho * energia_porcentaje)
+            
+            # Color de la barra: verde -> amarillo -> rojo
+            if energia_porcentaje > 0.6:
+                color_barra = (0, 255, 0)  # Verde
+            elif energia_porcentaje > 0.3:
+                color_barra = (255, 255, 0)  # Amarillo
+            else:
+                color_barra = (255, 0, 0)  # Rojo
+            
+            pygame.draw.rect(self.screen, color_barra,
+                           (barra_x + 2, barra_y + 2, ancho_actual - 4, barra_alto - 4))
+        
+        x_offset += spacing + 100
+        
         if self.modo == 'escapa':
             trampas_text = self.font_hud.render(f"Trampas: {self.trampas_disponibles}/3", True, COLORES['text_white'])
             self.screen.blit(trampas_text, (x_offset, 18))
@@ -536,7 +632,6 @@ class Juego:
         else:
             x_offset += 50
         
-        # Tiempo (siempre suma ahora)
         tiempo_seg = self.tiempo_actual // 1000
         minutos = tiempo_seg // 60
         segundos = tiempo_seg % 60
@@ -544,16 +639,13 @@ class Juego:
         self.screen.blit(tiempo_text, (x_offset, 18))
         x_offset += spacing + 20
         
-        # Puntaje
         puntaje_text = self.font_hud.render(f"Puntaje: {self.puntaje}", True, COLORES['text_white'])
         self.screen.blit(puntaje_text, (x_offset, 18))
         x_offset += spacing + 30
         
-        # ESC=Menu
         esc_text = self.font_hud.render("ESC=Menu", True, COLORES['text_yellow'])
         self.screen.blit(esc_text, (x_offset, 18))
         
-        # Jugador
         jugador_text = self.font_hud.render(f"Jugador: {self.nombre_jugador}", True, COLORES['text_white'])
         self.screen.blit(jugador_text, (ANCHO - 200, 18))
 

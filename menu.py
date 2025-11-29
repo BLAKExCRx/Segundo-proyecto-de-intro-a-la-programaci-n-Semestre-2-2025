@@ -140,9 +140,16 @@ class Menu:
         elif self.state == 'main_menu':
             mouse_pos = pygame.mouse.get_pos()
             
-            # MOSTRAR NOMBRE DEL JUGADOR EN MENÚ PRINCIPAL
-            jugador_label = self.font_subtitle.render(f"Jugador: {self.nombre}", True, (0, 0, 0))  # Negro para mejor visibilidad
-            self.screen.blit(jugador_label, (self.rects['label_jugador'].x, self.rects['label_jugador'].y))
+            # MOSTRAR NOMBRE DEL JUGADOR EN MENÚ PRINCIPAL CON MEJOR COLOR
+            # Fondo semi-transparente para mejor legibilidad
+            fondo_nombre = pygame.Surface((350, 40))
+            fondo_nombre.set_alpha(180)  # Semi-transparente
+            fondo_nombre.fill((20, 40, 80))  # Azul oscuro
+            self.screen.blit(fondo_nombre, (self.rects['label_jugador'].x, self.rects['label_jugador'].y))
+            
+            # Texto del jugador con color amarillo brillante para buena visibilidad
+            jugador_label = self.font_subtitle.render(f"Jugador: {self.nombre}", True, (255, 255, 0))  # Amarillo brillante
+            self.screen.blit(jugador_label, (self.rects['label_jugador'].x + 10, self.rects['label_jugador'].y + 8))
             
             # Panel modos
             pygame.draw.rect(self.screen, self.colors['bg_panel'], self.rects['panel_modos'], border_radius=20)
