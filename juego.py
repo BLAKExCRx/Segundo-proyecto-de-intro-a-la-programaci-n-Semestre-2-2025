@@ -414,3 +414,56 @@ class Juego:
 
     def _distancia(self, e1, e2):
         return abs(e1.fila - e2.fila) + abs(e1.col - e2.col)
+
+    def _verificar_colisiones(self):
+        """Verifica colisiones jugador-enemigo."""
+        for enemigo in [data['enemigo'] for data in self.enemigos_data if data['enemigo']]:
+            if (enemigo.fila, enemigo.col) == (self.jugador.fila, self.jugador.col):
+                if self.modo == 'escapa':
+                    self._terminar_juego("¡ATRAPADO!")
+                else:
+                    print("¡Presa atrapada!")
+                    self.puntaje += 20
+                    self.enemigos.remove(enemigo)
+                    
+                    enemigo_data = next((data for data in self.enemigos_data if data['enemigo'] == enemigo), None)
+                    if enemigo_data:
+                        enemigo_data['enemigo'] = None
+                        self._programar_reaparicion_enemigo(enemigo_data['id'])
+                    
+                    break
+
+    def _verificar_victoria_derrota(self):
+        """Verifica condiciones de victoria y derrota."""
+        if (self.jugador.fila, self.jugador.col) == self.mapa.salida:
+            if self.modo == 'escapa':
+                self._terminar_juego("¡ESCAPE EXITOSO!")
+        
+        if self.modo == 'cazador':
+            for enemigo in [data['enemigo'] for data in self.enemigos_data if data['enemigo']]:
+                if (enemigo.fila, enemigo.col) == self.mapa.salida:
+                    print("¡Presa escapó!")
+                    self.puntaje = max(0, self.puntaje - 10)
+                    
+                    self.enemigos.remove(enemigo)
+                    
+                    enemigo_data = next((data for data in self.enemigos_data if data['enemigo'] == enemigo), None)
+                    if enemigo_data:
+                        enemigo_data['enemigo'] = None
+                        self._programar_reaparicion_enemigo(enemigo_data['id'])
+
+    def _dibujar(self):
+        self.screen.fill(COLORES['bg_dark'])
+        self.mapa.dibujar(self.screen)
+        
+        for enemigo in [data['enemigo'] for data in self.enemigos_data if data['enemigo']]:
+            enemigo.dibujar(self.screen)
+
+        self.jugador.dibujar(self.screen)
+        self._dibujar_hud()
+        
+        if self.pausado:
+            self._dibujar_menu_pausa()
+        
+        if self.game_over:
+            self._dibujar_game_over()
