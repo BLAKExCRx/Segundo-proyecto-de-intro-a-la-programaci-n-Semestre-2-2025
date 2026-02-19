@@ -1,5 +1,17 @@
 [
     {
+        "nombre": "gege",
+        "puntaje": 330
+    },
+    {
+        "nombre": "ww",
+        "puntaje": 190
+    },
+    {
+        "nombre": "jose",
+        "puntaje": 150
+    },
+    {
         "nombre": "ee",
         "puntaje": 140
     }
